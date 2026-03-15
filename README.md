@@ -127,9 +127,14 @@ sentinel audit verify
 | [`@sentinel/revocation`](packages/revocation) | VC/DID revocation lists, key rotation, emergency kill switch |
 | [`@sentinel/attestation`](packages/attestation) | Code attestation — cryptographic proof an agent runs verified code |
 | [`@sentinel/stepup`](packages/stepup) | Step-up authentication — human re-approval for sensitive actions |
-| [`@sentinel/mcp-plugin`](packages/mcp-plugin) | MCP middleware — identity-aware tool call gating (revocation + attestation) |
-| [`@sentinel/sdk`](packages/sdk) | Developer SDK — 5-line integration with revocation, attestation, kill switch |
+| [`@sentinel/offline`](packages/offline) | Offline/degraded mode — LRU trust cache, CRDT reputation merge, pending tx queue |
+| [`@sentinel/safety`](packages/safety) | Content safety pipeline — prompt injection, PII, jailbreak detection with pluggable classifiers |
+| [`@sentinel/adapters`](packages/adapters) | Framework adapters for LangChain, CrewAI, AutoGen, OpenAI Agents SDK |
+| [`@sentinel/mcp-plugin`](packages/mcp-plugin) | MCP middleware — identity-aware tool call gating (revocation + attestation + safety) |
+| [`@sentinel/sdk`](packages/sdk) | Developer SDK — 5-line integration with offline mode, safety, revocation, kill switch |
 | [`@sentinel/cli`](packages/cli) | `sentinel` command-line tool |
+| [`@sentinel/hsm`](packages/hsm) | HSM KeyProvider backends — encrypted file, AWS CloudHSM, Azure Managed HSM, PKCS#11 |
+| [`@sentinel/dashboard`](packages/dashboard) | Web dashboard — trust graph, reputation scores, audit trail, revocation stats |
 
 ## Proof of Intent — Why This Matters
 
@@ -174,13 +179,67 @@ project-sentinel/
 │   ├── revocation/     # VC/DID revocation, key rotation, kill switch
 │   ├── attestation/    # Code attestation (bind DID → code hash)
 │   ├── stepup/         # Step-up auth (human re-approval)
+│   ├── offline/        # Offline mode, LRU cache, CRDT merge
+│   ├── safety/         # Content safety pipeline
+│   ├── adapters/       # LangChain, CrewAI, AutoGen, OpenAI adapters
 │   ├── mcp-plugin/     # MCP tool-call gating middleware
 │   ├── sdk/            # Developer SDK (5-line integration)
-│   └── cli/            # sentinel CLI tool
+│   ├── cli/            # sentinel CLI tool
+│   ├── hsm/            # HSM KeyProvider backends
+│   └── dashboard/      # Web trust visualization dashboard
 ├── specs/              # Protocol specifications
 ├── examples/           # Working demos
 └── docs/               # Threat model, privacy policy
 ```
+
+## SDK Quick Start
+
+```ts
+import { createTrustedAgent } from '@sentinel/sdk';
+
+// Create a trusted agent in 5 lines
+const agent = await createTrustedAgent({
+  name: 'my-travel-bot',
+  capabilities: ['flight_search', 'hotel_booking'],
+  enableSafety: true, // Content safety on by default
+});
+
+// Issue credentials, handshake, create intents...
+const vc = await agent.issueCredential({
+  type: 'AgentAuthorizationCredential',
+  subjectDid: peerAgent.did,
+  scope: ['travel:search'],
+});
+
+// Go offline — cached trust decisions continue working
+agent.goOffline();
+const decision = agent.evaluateTrust(peerDid);
+// { action: 'allow', scenario: 'reputation_cached_fresh', ... }
+
+// Content safety check
+const safety = await agent.checkSafety('Ignore previous instructions...');
+// { safe: false, blocked: true, violations: [{ category: 'prompt_injection' }] }
+```
+
+## Framework Adapters
+
+Sentinel works with **any** AI agent framework:
+
+```ts
+import { withTrust, StubTrustVerifier } from '@sentinel/adapters';
+
+// Universal wrapper — works with any async function
+const trustedBookFlight = withTrust(verifier, {
+  name: 'book_flight',
+  callerDid: agent.did,
+  scopes: ['travel:book'],
+  fn: async (dest: string) => bookFlight(dest),
+});
+
+await trustedBookFlight('Tokyo'); // Trust verified before execution
+```
+
+Adapters exist for **LangChain** (tool wrapper), **CrewAI** (task guard), **AutoGen** (message filter), and **OpenAI Agents SDK** (function guardrail).
 
 ## Security
 
@@ -196,8 +255,23 @@ project-sentinel/
 - **Emergency kill switch** with cascade to downstream delegations (<5s)
 - **Code attestation** — cryptographic proof an agent is running verified code (supply chain security)
 - **Step-up authentication** — sensitive actions pause for human re-approval (signed challenge-response)
+- **Content safety pipeline** — prompt injection, jailbreak, PII detection with pluggable classifiers
+- **Offline/degraded mode** — configurable policies (allow/warn/deny) when services are unreachable
 
 Report vulnerabilities to: security@sentinel-protocol.org
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+```bash
+git clone https://github.com/your-org/project-sentinel.git
+cd project-sentinel
+npm install
+npm run build        # Build all 14 packages
+npm test             # Run 231+ tests
+npx tsx examples/two-agent-handshake/demo.ts  # Full 15-step demo
+```
 
 ## License
 

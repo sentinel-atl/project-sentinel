@@ -1,0 +1,19 @@
+{
+  "name": "mcp-with-sentinel",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "tsx demo.ts"
+  },
+  "dependencies": {
+    "@sentinel/core": "*",
+    "@sentinel/mcp-plugin": "*",
+    "@sentinel/reputation": "*",
+    "@sentinel/audit": "*",
+    "@sentinel/safety": "*",
+    "@sentinel/offline": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
+  }
+}
