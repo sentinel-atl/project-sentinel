@@ -124,6 +124,10 @@ sentinel audit verify
 | [`@sentinel/reputation`](packages/reputation) | Weighted scoring, negative vouches, Sybil resistance, quarantine |
 | [`@sentinel/audit`](packages/audit) | Append-only hash-chain audit logging |
 | [`@sentinel/recovery`](packages/recovery) | Shamir's Secret Sharing key backup (3-of-5 default) |
+| [`@sentinel/revocation`](packages/revocation) | VC/DID revocation lists, key rotation, emergency kill switch |
+| [`@sentinel/attestation`](packages/attestation) | Code attestation — cryptographic proof an agent runs verified code |
+| [`@sentinel/mcp-plugin`](packages/mcp-plugin) | MCP middleware — identity-aware tool call gating |
+| [`@sentinel/sdk`](packages/sdk) | Developer SDK — 5-line integration for any agent framework |
 | [`@sentinel/cli`](packages/cli) | `sentinel` command-line tool |
 
 ## Proof of Intent — Why This Matters
@@ -166,9 +170,11 @@ project-sentinel/
 │   ├── reputation/     # Weighted scoring engine
 │   ├── audit/          # Hash-chain audit logging
 │   ├── recovery/       # Shamir's Secret Sharing
-│   ├── cli/            # sentinel CLI tool
-│   ├── mcp-plugin/     # MCP middleware (Phase 3)
-│   └── sdk/            # Developer SDK (Phase 3)
+│   ├── revocation/     # VC/DID revocation, key rotation, kill switch
+│   ├── attestation/    # Code attestation (bind DID → code hash)
+│   ├── mcp-plugin/     # MCP tool-call gating middleware
+│   ├── sdk/            # Developer SDK (5-line integration)
+│   └── cli/            # sentinel CLI tool
 ├── specs/              # Protocol specifications
 ├── examples/           # Working demos
 └── docs/               # Threat model, privacy policy
@@ -183,6 +189,10 @@ project-sentinel/
 - **Rate limiting** on handshake and vouch operations (prevents abuse)
 - **Circuit breaker** on repeated failures (prevents cascading collapse)
 - **Shamir's Secret Sharing** for key recovery (prevents permanent identity loss)
+- **VC/DID revocation lists** — signed, verifiable, importable across peers
+- **Key rotation** with dual-signature notices (old + new key both sign the rotation)
+- **Emergency kill switch** with cascade to downstream delegations (<5s)
+- **Code attestation** — cryptographic proof an agent is running verified code (supply chain security)
 
 Report vulnerabilities to: security@sentinel-protocol.org
 
