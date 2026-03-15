@@ -5,11 +5,14 @@ import {
   createIdentity,
   issueVC,
   createIntent,
+  publicKeyToDid,
   toBase64Url,
   textToBytes,
 } from '@sentinel/core';
 import { AuditLog } from '@sentinel/audit';
 import { ReputationEngine } from '@sentinel/reputation';
+import { RevocationManager } from '@sentinel/revocation';
+import { AttestationManager, hashCode } from '@sentinel/attestation';
 import { join } from 'node:path';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -266,5 +269,127 @@ describe('SentinelGuard', () => {
 
     const entries = await auditLog.readAll();
     expect(entries.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('rejects revoked DID', async () => {
+    const revocationManager = new RevocationManager();
+    const guard = createSentinelGuard({
+      auditLog,
+      serverDid,
+      revocationManager,
+    });
+
+    const { kp, identity: caller } = await makeCaller('caller');
+
+    // Revoke the caller's DID
+    await revocationManager.revokeDID(
+      serverKP, 'mcp-server', serverDid,
+      caller.did, 'policy_violation'
+    );
+
+    const result = await guard.verifyToolCall({
+      toolName: 'echo',
+      callerDid: caller.did,
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('revoked');
+  });
+
+  it('rejects revoked credential', async () => {
+    const revocationManager = new RevocationManager();
+    const guard = createSentinelGuard({
+      auditLog,
+      serverDid,
+      requiredCredentials: ['AgentAuthorizationCredential'],
+      revocationManager,
+    });
+
+    const { kp, identity: caller } = await makeCaller('caller');
+
+    const vc = await issueVC(kp, {
+      type: 'AgentAuthorizationCredential',
+      issuerDid: caller.did,
+      issuerKeyId: caller.keyId,
+      subjectDid: caller.did,
+      scope: ['test:scope'],
+      expiresInMs: 3600_000,
+    });
+
+    // Revoke the VC
+    await revocationManager.revokeVC(
+      serverKP, 'mcp-server', serverDid,
+      vc.id, 'scope_violation'
+    );
+
+    const result = await guard.verifyToolCall({
+      toolName: 'echo',
+      callerDid: caller.did,
+      credentials: [vc],
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('Credential revoked');
+  });
+
+  it('rejects caller with wrong code attestation', async () => {
+    const attestationManager = new AttestationManager();
+    const expectedHash = hashCode('trusted-code-v1.0');
+
+    const guard = createSentinelGuard({
+      auditLog,
+      serverDid,
+      attestationManager,
+      requiredCodeHash: expectedHash,
+    });
+
+    const { kp, identity: caller } = await makeCaller('caller');
+
+    // No attestation at all → rejected
+    const noAttestResult = await guard.verifyToolCall({
+      toolName: 'echo',
+      callerDid: caller.did,
+    });
+    expect(noAttestResult.allowed).toBe(false);
+    expect(noAttestResult.reason).toContain('Attestation failed');
+
+    // Wrong code hash → rejected
+    await attestationManager.attest(
+      kp, caller.keyId, caller.did,
+      hashCode('different-code'), ['main.ts']
+    );
+
+    const wrongHashResult = await guard.verifyToolCall({
+      toolName: 'echo',
+      callerDid: caller.did,
+    });
+    expect(wrongHashResult.allowed).toBe(false);
+    expect(wrongHashResult.reason).toContain('Attestation failed');
+  });
+
+  it('allows caller with correct code attestation', async () => {
+    const attestationManager = new AttestationManager();
+    const expectedHash = hashCode('trusted-code-v1.0');
+
+    const guard = createSentinelGuard({
+      auditLog,
+      serverDid,
+      attestationManager,
+      requiredCodeHash: expectedHash,
+    });
+
+    const { kp, identity: caller } = await makeCaller('caller');
+
+    // Attest with correct hash
+    await attestationManager.attest(
+      kp, caller.keyId, caller.did,
+      expectedHash, ['main.ts']
+    );
+
+    const result = await guard.verifyToolCall({
+      toolName: 'echo',
+      callerDid: caller.did,
+    });
+    expect(result.allowed).toBe(true);
+    expect(result.checks.attestation).toBe(true);
+    expect(result.checks.revocation).toBe(true);
   });
 });

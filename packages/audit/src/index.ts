@@ -56,10 +56,28 @@ export interface AuditLogConfig {
 const GENESIS_HASH = '0'.repeat(64);
 
 /**
+ * Recursively sort all object keys for deterministic serialization.
+ */
+function sortDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortDeep);
+  if (value !== null && typeof value === 'object') {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[key] = sortDeep((value as Record<string, unknown>)[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
+/**
  * Compute the hash of an audit entry (excluding entryHash itself).
+ *
+ * Uses recursive deep-sort to ensure deterministic serialization
+ * regardless of key insertion order or undefined-valued fields.
  */
 function computeEntryHash(entry: Omit<AuditEntry, 'entryHash'>): string {
-  const data = JSON.stringify(entry, Object.keys(entry).sort());
+  const data = JSON.stringify(sortDeep(entry));
   return toHex(hash(textToBytes(data)));
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createTrustedAgent } from '../index.js';
+import { createTrustedAgent, hashCode } from '../index.js';
 import { join } from 'node:path';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -99,5 +99,59 @@ describe('@sentinel/sdk', () => {
     const entries = await agent.getAuditLog().readAll();
     // At least: identity_created + vc_issued
     expect(entries.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('revokes a VC and checks trust', async () => {
+    const agent = await makeAgent('revoker');
+    const peer = await makeAgent('peer');
+
+    const vc = await agent.issueCredential({
+      type: 'AgentAuthorizationCredential',
+      subjectDid: peer.did,
+      scope: ['test:scope'],
+      expiresInMs: 3600_000,
+    });
+
+    // Initially trusted
+    expect(agent.isTrusted(peer.did, vc.id).trusted).toBe(true);
+
+    // Revoke
+    await agent.revokeCredential(vc.id, 'policy_violation');
+
+    // Now VC is untrusted
+    const result = agent.isTrusted(peer.did, vc.id);
+    expect(result.trusted).toBe(false);
+    expect(result.reason).toContain('VC revoked');
+  });
+
+  it('activates kill switch on a rogue agent', async () => {
+    const admin = await makeAgent('admin');
+    const rogue = await makeAgent('rogue');
+
+    const event = await admin.killSwitch(
+      rogue.did,
+      'Producing harmful output'
+    );
+
+    expect(event.targetDid).toBe(rogue.did);
+    expect(event.activatedBy).toBe(admin.did);
+    expect(admin.isTrusted(rogue.did).trusted).toBe(false);
+  });
+
+  it('attests code and retrieves attestation', async () => {
+    const agent = await makeAgent('attested');
+    const codeHash = hashCode('my agent code v1.0');
+
+    const attestation = await agent.attestCode(
+      codeHash,
+      ['main.ts', 'utils.ts'],
+      { version: '1.0.0', commitHash: 'abc123' }
+    );
+
+    expect(attestation.agentDid).toBe(agent.did);
+    expect(attestation.codeHash).toBe(codeHash);
+
+    const retrieved = agent.getAttestation();
+    expect(retrieved?.version).toBe('1.0.0');
   });
 });

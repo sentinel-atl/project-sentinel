@@ -126,8 +126,9 @@ sentinel audit verify
 | [`@sentinel/recovery`](packages/recovery) | Shamir's Secret Sharing key backup (3-of-5 default) |
 | [`@sentinel/revocation`](packages/revocation) | VC/DID revocation lists, key rotation, emergency kill switch |
 | [`@sentinel/attestation`](packages/attestation) | Code attestation — cryptographic proof an agent runs verified code |
-| [`@sentinel/mcp-plugin`](packages/mcp-plugin) | MCP middleware — identity-aware tool call gating |
-| [`@sentinel/sdk`](packages/sdk) | Developer SDK — 5-line integration for any agent framework |
+| [`@sentinel/stepup`](packages/stepup) | Step-up authentication — human re-approval for sensitive actions |
+| [`@sentinel/mcp-plugin`](packages/mcp-plugin) | MCP middleware — identity-aware tool call gating (revocation + attestation) |
+| [`@sentinel/sdk`](packages/sdk) | Developer SDK — 5-line integration with revocation, attestation, kill switch |
 | [`@sentinel/cli`](packages/cli) | `sentinel` command-line tool |
 
 ## Proof of Intent — Why This Matters
@@ -172,6 +173,7 @@ project-sentinel/
 │   ├── recovery/       # Shamir's Secret Sharing
 │   ├── revocation/     # VC/DID revocation, key rotation, kill switch
 │   ├── attestation/    # Code attestation (bind DID → code hash)
+│   ├── stepup/         # Step-up auth (human re-approval)
 │   ├── mcp-plugin/     # MCP tool-call gating middleware
 │   ├── sdk/            # Developer SDK (5-line integration)
 │   └── cli/            # sentinel CLI tool
@@ -193,6 +195,7 @@ project-sentinel/
 - **Key rotation** with dual-signature notices (old + new key both sign the rotation)
 - **Emergency kill switch** with cascade to downstream delegations (<5s)
 - **Code attestation** — cryptographic proof an agent is running verified code (supply chain security)
+- **Step-up authentication** — sensitive actions pause for human re-approval (signed challenge-response)
 
 Report vulnerabilities to: security@sentinel-protocol.org
 

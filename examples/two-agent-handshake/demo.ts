@@ -37,6 +37,9 @@ import {
 } from '@sentinel/handshake';
 import { ReputationEngine } from '@sentinel/reputation';
 import { AuditLog } from '@sentinel/audit';
+import { RevocationManager } from '@sentinel/revocation';
+import { AttestationManager, hashCode } from '@sentinel/attestation';
+import { StepUpManager } from '@sentinel/stepup';
 import { join } from 'node:path';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -341,7 +344,143 @@ async function main() {
   // ─── Done ────────────────────────────────────────────────────────
 
   console.log('\n' + '='.repeat(60));
-  console.log('\n✅ Demo complete. Full trust pipeline demonstrated:');
+  console.log('\n🔒 Phase 2: Revocation, Attestation, Step-Up Auth, Kill Switch');
+  console.log('='.repeat(60));
+
+  // ─── Step 9: Code Attestation ─────────────────────────────────────
+
+  console.log('\n📋 Step 9: Code Attestation...\n');
+
+  const attestationMgr = new AttestationManager(auditLog);
+
+  const agentACodeHash = hashCode('// TravelAgent v1.0 — flight search + booking');
+  const agentBCodeHash = hashCode('// PayBot v1.0 — payment processing');
+
+  const attestA = await attestationMgr.attest(
+    agentAKP, agentA.keyId, agentA.did,
+    agentACodeHash, ['travel-agent.ts'],
+    { version: '1.0.0', commitHash: 'abc123def' }
+  );
+  console.log(`  ✅ Agent A attested: code hash ${attestA.codeHash.slice(0, 16)}...`);
+  console.log(`     Version: ${attestA.version}, Commit: ${attestA.commitHash}`);
+
+  const attestB = await attestationMgr.attest(
+    agentBKP, agentB.keyId, agentB.did,
+    agentBCodeHash, ['payment-agent.ts'],
+    { version: '1.0.0' }
+  );
+  console.log(`  ✅ Agent B attested: code hash ${attestB.codeHash.slice(0, 16)}...`);
+
+  // Verify attestations
+  const verifyAttestA = await attestationMgr.verify(attestA);
+  const verifyAttestB = await attestationMgr.verify(attestB);
+  console.log(`     Agent A attestation valid: ${verifyAttestA.valid}`);
+  console.log(`     Agent B attestation valid: ${verifyAttestB.valid}`);
+
+  // Verify expected code hash
+  const hashMatch = await attestationMgr.verifyCodeHash(agentA.did, agentACodeHash);
+  console.log(`     Agent A running expected code: ${hashMatch.match}`);
+
+  // ─── Step 10: Step-Up Authentication ──────────────────────────────
+
+  console.log('\n📋 Step 10: Step-Up Authentication for sensitive payment...\n');
+
+  const stepUpMgr = new StepUpManager({
+    alwaysRequireActions: ['payment:authorize_over_500'],
+    sensitivityLevels: ['high', 'critical'],
+  });
+
+  // Check if action requires step-up
+  const stepUpCheck = stepUpMgr.requiresStepUp('payment:authorize_over_500');
+  console.log(`  🔐 Action "payment:authorize_over_500" requires step-up: ${stepUpCheck.required}`);
+  console.log(`     Trigger: ${stepUpCheck.trigger}`);
+
+  // Create challenge for the human principal
+  const challenge = stepUpMgr.createChallenge(
+    agentB.did, principal.did,
+    'payment:authorize_over_500',
+    ['payment:authorize_up_to_1000'],
+    'policy_rule',
+    'Authorize payment of $750 to Tokyo Airlines for flight TK-1234'
+  );
+  console.log(`  📨 Challenge sent to principal: ${challenge.challengeId}`);
+  console.log(`     Action: ${challenge.actionDescription}`);
+  console.log(`     Expires: ${challenge.expiresAt}`);
+
+  // Principal approves (signs the approval)
+  const approval = await stepUpMgr.signApproval(
+    principalKP, principal.keyId, challenge, 'approved'
+  );
+  console.log(`  ✍️  Principal signed approval: ${approval.decision}`);
+
+  // Verify the approval
+  const stepUpResult = await stepUpMgr.verifyApproval(approval);
+  console.log(`  ${stepUpResult.approved ? '✅' : '❌'} Step-up result: ${stepUpResult.approved ? 'APPROVED — payment can proceed' : stepUpResult.error}`);
+
+  // ─── Step 11: Revocation & Kill Switch ────────────────────────────
+
+  console.log('\n📋 Step 11: Revocation & Kill Switch...\n');
+
+  const revocationMgr = new RevocationManager(auditLog);
+
+  // Revoke Agent B's delegation VC (scenario: payment completed, no longer needed)
+  await revocationMgr.revokeVC(
+    principalKP, principal.keyId, principal.did,
+    delegationVC.id, 'manual', 'Payment completed, delegation no longer needed'
+  );
+  console.log(`  🚫 Delegation VC revoked: ${delegationVC.id.slice(0, 30)}...`);
+  console.log(`     Is revoked: ${revocationMgr.isVCRevoked(delegationVC.id)}`);
+
+  // Trust check
+  const trustCheck = revocationMgr.isTrusted(agentB.did, delegationVC.id);
+  console.log(`     Agent B with delegation VC trusted: ${trustCheck.trusted} (${trustCheck.reason})`);
+
+  // Publish signed revocation list
+  const revList = await revocationMgr.publishRevocationList(
+    principalKP, principal.keyId, principal.did
+  );
+  console.log(`\n  📋 Published Revocation List v${revList.version}`);
+  console.log(`     Entries: ${revList.entries.length}`);
+
+  // Verify the list signature
+  const listVerify = await revocationMgr.verifyRevocationList(revList);
+  console.log(`     Signature valid: ${listVerify.valid}`);
+
+  // Simulate: Agent B goes rogue → emergency kill switch
+  console.log('\n  🚨 EMERGENCY: Agent B detected producing harmful output!');
+
+  const killEvent = await revocationMgr.killSwitch(
+    principalKP, principal.keyId, principal.did,
+    agentB.did,
+    'Producing harmful output — immediate termination',
+    { cascade: false }
+  );
+  console.log(`  🔴 Kill switch activated by ${killEvent.activatedBy.slice(0, 20)}...`);
+  console.log(`     Target: Agent B (${killEvent.targetDid.slice(0, 20)}...)`);
+  console.log(`     Reason: ${killEvent.reason}`);
+  console.log(`     Agent B DID now revoked: ${revocationMgr.isDIDRevoked(agentB.did)}`);
+
+  // Verify kill switch signature
+  const killVerify = await revocationMgr.verifyKillSwitch(killEvent);
+  console.log(`     Kill switch signature valid: ${killVerify.valid}`);
+
+  // Stats
+  const stats = revocationMgr.getStats();
+  console.log(`\n  📊 Revocation Stats: ${stats.revokedVCs} VCs, ${stats.revokedDIDs} DIDs, ${stats.killEvents} kill events`);
+
+  // ─── Step 12: Final Audit Verification ────────────────────────────
+
+  console.log('\n📋 Step 12: Final audit log verification...\n');
+
+  const finalAudit = await auditLog.verifyIntegrity();
+  console.log(`  ${finalAudit.valid ? '✅' : '❌'} Audit log integrity: ${finalAudit.valid ? 'INTACT' : 'BROKEN'}`);
+  console.log(`     Total entries: ${finalAudit.totalEntries}`);
+
+  // ─── Summary ──────────────────────────────────────────────────────
+
+  console.log('\n' + '='.repeat(60));
+  console.log('\n✅ Full demo complete. Trust pipeline demonstrated:');
+  console.log('   Phase 1:');
   console.log('   1. Identity creation (DID + Ed25519)');
   console.log('   2. Verifiable Credential issuance + verification');
   console.log('   3. Zero-trust handshake with mutual VC exchange');
@@ -349,6 +488,11 @@ async function main() {
   console.log('   5. Proof of Intent with replay protection');
   console.log('   6. Reputation vouching with rate limits + self-vouch rejection');
   console.log('   7. Tamper-evident audit log with hash-chain integrity');
+  console.log('   Phase 2:');
+  console.log('   8. Code attestation (bind agent DID → verified code hash)');
+  console.log('   9. Step-up authentication (human approves sensitive actions)');
+  console.log('   10. VC revocation + signed revocation lists');
+  console.log('   11. Emergency kill switch (instant agent termination)');
   console.log();
 }
 

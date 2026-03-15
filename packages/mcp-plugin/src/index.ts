@@ -31,6 +31,8 @@ import {
 } from '@sentinel/core';
 import { AuditLog, type AuditEventType } from '@sentinel/audit';
 import { ReputationEngine, type ReputationScore } from '@sentinel/reputation';
+import { RevocationManager } from '@sentinel/revocation';
+import { AttestationManager } from '@sentinel/attestation';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -49,6 +51,12 @@ export interface SentinelGuardConfig {
   reputationEngine?: ReputationEngine;
   /** Whether to require intent envelopes (default: false) */
   requireIntent?: boolean;
+  /** Revocation manager for DID/VC revocation checks */
+  revocationManager?: RevocationManager;
+  /** Attestation manager for code attestation checks */
+  attestationManager?: AttestationManager;
+  /** Expected code hash — if set, callers must have matching attestation */
+  requiredCodeHash?: string;
 }
 
 export interface MCPToolCallRequest {
@@ -75,6 +83,8 @@ export interface VerifyResult {
     reputation: boolean;
     intent: boolean;
     scope: boolean;
+    revocation: boolean;
+    attestation: boolean;
   };
   callerReputation?: ReputationScore;
 }
@@ -86,6 +96,8 @@ export class SentinelGuard {
     Pick<SentinelGuardConfig, 'auditLog' | 'serverDid' | 'minReputation' | 'requireIntent'>
   > & SentinelGuardConfig;
   private reputationEngine: ReputationEngine;
+  private revocationManager: RevocationManager;
+  private attestationManager: AttestationManager;
   private seenNonces = new Set<string>();
 
   constructor(config: SentinelGuardConfig) {
@@ -95,6 +107,8 @@ export class SentinelGuard {
       requireIntent: config.requireIntent ?? false,
     };
     this.reputationEngine = config.reputationEngine ?? new ReputationEngine();
+    this.revocationManager = config.revocationManager ?? new RevocationManager();
+    this.attestationManager = config.attestationManager ?? new AttestationManager();
   }
 
   /**
@@ -115,6 +129,8 @@ export class SentinelGuard {
       reputation: false,
       intent: false,
       scope: false,
+      revocation: false,
+      attestation: false,
     };
 
     // 1. Identity — verify caller DID is resolvable
@@ -125,6 +141,36 @@ export class SentinelGuard {
       await this.audit('handshake_failed', request.callerDid, 'failure', 'Invalid caller DID');
       return { allowed: false, reason: `Invalid caller DID: ${request.callerDid}`, checks };
     }
+
+    // 1b. Revocation — check if caller DID or any credential is revoked
+    const trustCheck = this.revocationManager.isTrusted(request.callerDid);
+    if (!trustCheck.trusted) {
+      await this.audit('emergency_revoke', request.callerDid, 'failure', trustCheck.reason);
+      return { allowed: false, reason: `Caller revoked: ${trustCheck.reason}`, checks };
+    }
+    if (request.credentials) {
+      for (const vc of request.credentials) {
+        const vcTrust = this.revocationManager.isTrusted(vc.issuer, vc.id);
+        if (!vcTrust.trusted) {
+          await this.audit('vc_revoked', request.callerDid, 'failure', vcTrust.reason);
+          return { allowed: false, reason: `Credential revoked: ${vcTrust.reason}`, checks };
+        }
+      }
+    }
+    checks.revocation = true;
+
+    // 1c. Attestation — if required, verify caller's code hash
+    if (this.config.requiredCodeHash) {
+      const attestResult = await this.attestationManager.verifyCodeHash(
+        request.callerDid,
+        this.config.requiredCodeHash
+      );
+      if (!attestResult.match) {
+        await this.audit('handshake_failed', request.callerDid, 'failure', attestResult.error);
+        return { allowed: false, reason: `Attestation failed: ${attestResult.error}`, checks };
+      }
+    }
+    checks.attestation = true;
 
     // 2. Authentication — verify caller signed the payload
     if (request.authSignature && request.authPayload) {
@@ -285,6 +331,20 @@ export class SentinelGuard {
    */
   getReputationEngine(): ReputationEngine {
     return this.reputationEngine;
+  }
+
+  /**
+   * Get the revocation manager for revoking DIDs/VCs.
+   */
+  getRevocationManager(): RevocationManager {
+    return this.revocationManager;
+  }
+
+  /**
+   * Get the attestation manager for verifying code attestations.
+   */
+  getAttestationManager(): AttestationManager {
+    return this.attestationManager;
   }
 
   private async audit(

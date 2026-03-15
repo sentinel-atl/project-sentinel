@@ -43,6 +43,17 @@ import {
 } from '@sentinel/handshake';
 import { ReputationEngine, type ReputationScore } from '@sentinel/reputation';
 import { AuditLog } from '@sentinel/audit';
+import {
+  RevocationManager,
+  type RevocationReason,
+  type KillSwitchEvent,
+} from '@sentinel/revocation';
+import {
+  AttestationManager,
+  hashCode,
+  hashDirectory,
+  type CodeAttestation,
+} from '@sentinel/attestation';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { mkdirSync, existsSync } from 'node:fs';
@@ -120,6 +131,35 @@ export interface TrustedAgent {
   /** Get reputation score for any agent */
   getReputation(did: string): ReputationScore;
 
+  /** Revoke a Verifiable Credential */
+  revokeCredential(credentialId: string, reason: RevocationReason): Promise<void>;
+
+  /** Revoke a DID (mark agent as untrusted) */
+  revokeDID(targetDid: string, reason: RevocationReason): Promise<void>;
+
+  /** Check if a DID + optional credential is currently trusted */
+  isTrusted(did: string, credentialId?: string): { trusted: boolean; reason?: string };
+
+  /** Emergency kill switch — revoke agent + cascade to downstream */
+  killSwitch(
+    targetDid: string,
+    reason: string,
+    options?: { cascade?: boolean; downstreamDids?: string[] }
+  ): Promise<KillSwitchEvent>;
+
+  /** Attest to the code this agent is running */
+  attestCode(
+    codeHash: string,
+    includedFiles: string[],
+    options?: { version?: string; repositoryUrl?: string; commitHash?: string; buildId?: string }
+  ): Promise<CodeAttestation>;
+
+  /** Get this agent's current code attestation */
+  getAttestation(): CodeAttestation | undefined;
+
+  /** Get the revocation manager */
+  getRevocationManager(): RevocationManager;
+
   /** Get the audit log instance */
   getAuditLog(): AuditLog;
 
@@ -137,6 +177,8 @@ class TrustedAgentImpl implements TrustedAgent {
   private keyProvider: KeyProvider;
   private auditLog: AuditLog;
   private reputationEngine: ReputationEngine;
+  private revocationManager: RevocationManager;
+  private attestationManager: AttestationManager;
   private rateLimiter = new HandshakeRateLimiter();
   private circuitBreaker = new HandshakeCircuitBreaker();
   private seenNonces = new Set<string>();
@@ -146,7 +188,9 @@ class TrustedAgentImpl implements TrustedAgent {
     keyProvider: KeyProvider,
     passport: AgentPassport,
     auditLog: AuditLog,
-    reputationEngine: ReputationEngine
+    reputationEngine: ReputationEngine,
+    revocationManager: RevocationManager,
+    attestationManager: AttestationManager
   ) {
     this.did = identity.did;
     this.keyId = identity.keyId;
@@ -154,6 +198,8 @@ class TrustedAgentImpl implements TrustedAgent {
     this.passport = passport;
     this.auditLog = auditLog;
     this.reputationEngine = reputationEngine;
+    this.revocationManager = revocationManager;
+    this.attestationManager = attestationManager;
   }
 
   async issueCredential(options: {
@@ -330,6 +376,54 @@ class TrustedAgentImpl implements TrustedAgent {
     return this.reputationEngine.computeScore(did);
   }
 
+  async revokeCredential(credentialId: string, reason: RevocationReason): Promise<void> {
+    await this.revocationManager.revokeVC(
+      this.keyProvider, this.keyId, this.did,
+      credentialId, reason
+    );
+  }
+
+  async revokeDID(targetDid: string, reason: RevocationReason): Promise<void> {
+    await this.revocationManager.revokeDID(
+      this.keyProvider, this.keyId, this.did,
+      targetDid, reason
+    );
+  }
+
+  isTrusted(did: string, credentialId?: string): { trusted: boolean; reason?: string } {
+    return this.revocationManager.isTrusted(did, credentialId);
+  }
+
+  async killSwitch(
+    targetDid: string,
+    reason: string,
+    options?: { cascade?: boolean; downstreamDids?: string[] }
+  ): Promise<KillSwitchEvent> {
+    return this.revocationManager.killSwitch(
+      this.keyProvider, this.keyId, this.did,
+      targetDid, reason, options
+    );
+  }
+
+  async attestCode(
+    codeHash: string,
+    includedFiles: string[],
+    options?: { version?: string; repositoryUrl?: string; commitHash?: string; buildId?: string }
+  ): Promise<CodeAttestation> {
+    return this.attestationManager.attest(
+      this.keyProvider, this.keyId, this.did,
+      codeHash, includedFiles, options
+    );
+  }
+
+  getAttestation(): CodeAttestation | undefined {
+    return this.attestationManager.getAttestation(this.did);
+  }
+
+  getRevocationManager(): RevocationManager {
+    return this.revocationManager;
+  }
+
   getAuditLog(): AuditLog {
     return this.auditLog;
   }
@@ -376,6 +470,8 @@ export async function createTrustedAgent(config: TrustedAgentConfig): Promise<Tr
   const auditLog = new AuditLog({ logPath: auditLogPath });
 
   const reputationEngine = config.reputationEngine ?? new ReputationEngine();
+  const revocationManager = new RevocationManager(auditLog);
+  const attestationManager = new AttestationManager(auditLog);
 
   await auditLog.log({
     eventType: 'identity_created',
@@ -384,7 +480,10 @@ export async function createTrustedAgent(config: TrustedAgentConfig): Promise<Tr
     metadata: { name: config.name },
   });
 
-  return new TrustedAgentImpl(identity, keyProvider, passport, auditLog, reputationEngine);
+  return new TrustedAgentImpl(
+    identity, keyProvider, passport, auditLog,
+    reputationEngine, revocationManager, attestationManager
+  );
 }
 
 // Re-export commonly needed types
@@ -397,4 +496,10 @@ export type {
   CredentialType,
   SensitivityLevel,
   KeyProvider,
+  RevocationReason,
+  KillSwitchEvent,
+  CodeAttestation,
 };
+
+// Re-export utilities
+export { hashCode, hashDirectory };
