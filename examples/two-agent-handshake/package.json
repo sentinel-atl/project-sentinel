@@ -9,7 +9,13 @@
     "@sentinel/core": "*",
     "@sentinel/handshake": "*",
     "@sentinel/reputation": "*",
-    "@sentinel/audit": "*"
+    "@sentinel/audit": "*",
+    "@sentinel/revocation": "*",
+    "@sentinel/attestation": "*",
+    "@sentinel/stepup": "*",
+    "@sentinel/offline": "*",
+    "@sentinel/safety": "*",
+    "@sentinel/adapters": "*"
   },
   "devDependencies": {
     "tsx": "^4.7.0"

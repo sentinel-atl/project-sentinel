@@ -54,6 +54,20 @@ import {
   hashDirectory,
   type CodeAttestation,
 } from '@sentinel/attestation';
+import {
+  OfflineManager,
+  type OfflinePolicy,
+  type DegradedDecision,
+  type PendingOperation,
+  type VouchCRDT,
+  type MergeResult,
+} from '@sentinel/offline';
+import {
+  SafetyPipeline,
+  RegexClassifier,
+  type SafetyCheckResult,
+  type ContentClassifier,
+} from '@sentinel/safety';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { mkdirSync, existsSync } from 'node:fs';
@@ -77,6 +91,12 @@ export interface TrustedAgentConfig {
   auditLogPath?: string;
   /** Custom reputation engine */
   reputationEngine?: ReputationEngine;
+  /** Offline policy configuration */
+  offlinePolicy?: Partial<OfflinePolicy>;
+  /** Content safety classifiers (default: RegexClassifier) */
+  safetyClassifiers?: ContentClassifier[];
+  /** Whether to enable content safety by default */
+  enableSafety?: boolean;
 }
 
 export interface TrustedAgent {
@@ -160,6 +180,30 @@ export interface TrustedAgent {
   /** Get the revocation manager */
   getRevocationManager(): RevocationManager;
 
+  /** Get the offline manager for degraded mode */
+  getOfflineManager(): OfflineManager;
+
+  /** Get the safety pipeline */
+  getSafetyPipeline(): SafetyPipeline | undefined;
+
+  /** Evaluate whether a trust decision can proceed (online/offline) */
+  evaluateTrust(peerDid: string, issuerDid?: string): DegradedDecision;
+
+  /** Queue an operation for offline sync */
+  queueOfflineOperation(op: PendingOperation): void;
+
+  /** Merge remote CRDT state from a reconnected peer */
+  mergeReputationState(remote: VouchCRDT[]): MergeResult;
+
+  /** Check content safety */
+  checkSafety(text: string): Promise<SafetyCheckResult | undefined>;
+
+  /** Go offline */
+  goOffline(): void;
+
+  /** Go online */
+  goOnline(): void;
+
   /** Get the audit log instance */
   getAuditLog(): AuditLog;
 
@@ -179,6 +223,8 @@ class TrustedAgentImpl implements TrustedAgent {
   private reputationEngine: ReputationEngine;
   private revocationManager: RevocationManager;
   private attestationManager: AttestationManager;
+  private offlineManager: OfflineManager;
+  private safetyPipeline: SafetyPipeline | undefined;
   private rateLimiter = new HandshakeRateLimiter();
   private circuitBreaker = new HandshakeCircuitBreaker();
   private seenNonces = new Set<string>();
@@ -190,7 +236,9 @@ class TrustedAgentImpl implements TrustedAgent {
     auditLog: AuditLog,
     reputationEngine: ReputationEngine,
     revocationManager: RevocationManager,
-    attestationManager: AttestationManager
+    attestationManager: AttestationManager,
+    offlineManager: OfflineManager,
+    safetyPipeline?: SafetyPipeline
   ) {
     this.did = identity.did;
     this.keyId = identity.keyId;
@@ -200,6 +248,8 @@ class TrustedAgentImpl implements TrustedAgent {
     this.reputationEngine = reputationEngine;
     this.revocationManager = revocationManager;
     this.attestationManager = attestationManager;
+    this.offlineManager = offlineManager;
+    this.safetyPipeline = safetyPipeline;
   }
 
   async issueCredential(options: {
@@ -424,6 +474,40 @@ class TrustedAgentImpl implements TrustedAgent {
     return this.revocationManager;
   }
 
+  getOfflineManager(): OfflineManager {
+    return this.offlineManager;
+  }
+
+  getSafetyPipeline(): SafetyPipeline | undefined {
+    return this.safetyPipeline;
+  }
+
+  evaluateTrust(peerDid: string, issuerDid?: string): DegradedDecision {
+    return this.offlineManager.evaluateTrustDecision(peerDid, issuerDid);
+  }
+
+  queueOfflineOperation(op: PendingOperation): void {
+    this.offlineManager.queueTransaction(op);
+  }
+
+  mergeReputationState(remote: VouchCRDT[]): MergeResult {
+    return this.offlineManager.mergeRemoteState(remote);
+  }
+
+  async checkSafety(text: string): Promise<SafetyCheckResult | undefined> {
+    if (!this.safetyPipeline) return undefined;
+    const result = await this.safetyPipeline.check(text);
+    return result;
+  }
+
+  goOffline(): void {
+    this.offlineManager.goOffline();
+  }
+
+  goOnline(): void {
+    this.offlineManager.goOnline();
+  }
+
   getAuditLog(): AuditLog {
     return this.auditLog;
   }
@@ -472,6 +556,14 @@ export async function createTrustedAgent(config: TrustedAgentConfig): Promise<Tr
   const reputationEngine = config.reputationEngine ?? new ReputationEngine();
   const revocationManager = new RevocationManager(auditLog);
   const attestationManager = new AttestationManager(auditLog);
+  const offlineManager = new OfflineManager({ policy: config.offlinePolicy });
+  const safetyPipeline = config.enableSafety
+    ? new SafetyPipeline({
+        classifiers: config.safetyClassifiers ?? [new RegexClassifier()],
+        auditLog,
+        actorDid: identity.did,
+      })
+    : undefined;
 
   await auditLog.log({
     eventType: 'identity_created',
@@ -482,7 +574,8 @@ export async function createTrustedAgent(config: TrustedAgentConfig): Promise<Tr
 
   return new TrustedAgentImpl(
     identity, keyProvider, passport, auditLog,
-    reputationEngine, revocationManager, attestationManager
+    reputationEngine, revocationManager, attestationManager,
+    offlineManager, safetyPipeline
   );
 }
 
@@ -499,7 +592,14 @@ export type {
   RevocationReason,
   KillSwitchEvent,
   CodeAttestation,
+  OfflinePolicy,
+  DegradedDecision,
+  PendingOperation,
+  VouchCRDT,
+  MergeResult,
+  SafetyCheckResult,
+  ContentClassifier,
 };
 
 // Re-export utilities
-export { hashCode, hashDirectory };
+export { hashCode, hashDirectory, OfflineManager, SafetyPipeline, RegexClassifier };

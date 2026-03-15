@@ -18,7 +18,9 @@
     "@sentinel/reputation": "*",
     "@sentinel/audit": "*",
     "@sentinel/revocation": "*",
-    "@sentinel/attestation": "*"
+    "@sentinel/attestation": "*",
+    "@sentinel/offline": "*",
+    "@sentinel/safety": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

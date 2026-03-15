@@ -1,0 +1,32 @@
+{
+  "name": "@sentinel/adapters",
+  "version": "0.1.0",
+  "description": "Framework adapters for LangChain, CrewAI, AutoGen, and OpenAI Agents SDK — integrate Sentinel trust in any AI agent framework",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@sentinel/core": "*",
+    "@sentinel/sdk": "*",
+    "@sentinel/audit": "*",
+    "@sentinel/reputation": "*",
+    "@sentinel/revocation": "*",
+    "@sentinel/offline": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

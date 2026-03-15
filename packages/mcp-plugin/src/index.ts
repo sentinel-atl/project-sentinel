@@ -33,6 +33,8 @@ import { AuditLog, type AuditEventType } from '@sentinel/audit';
 import { ReputationEngine, type ReputationScore } from '@sentinel/reputation';
 import { RevocationManager } from '@sentinel/revocation';
 import { AttestationManager } from '@sentinel/attestation';
+import { OfflineManager, type DegradedDecision } from '@sentinel/offline';
+import { SafetyPipeline, type SafetyCheckResult } from '@sentinel/safety';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -57,6 +59,10 @@ export interface SentinelGuardConfig {
   attestationManager?: AttestationManager;
   /** Expected code hash — if set, callers must have matching attestation */
   requiredCodeHash?: string;
+  /** Offline manager for degraded mode support */
+  offlineManager?: OfflineManager;
+  /** Safety pipeline for content filtering */
+  safetyPipeline?: SafetyPipeline;
 }
 
 export interface MCPToolCallRequest {
@@ -85,8 +91,11 @@ export interface VerifyResult {
     scope: boolean;
     revocation: boolean;
     attestation: boolean;
+    safety: boolean;
   };
   callerReputation?: ReputationScore;
+  offlineDecision?: DegradedDecision;
+  safetyResult?: SafetyCheckResult;
 }
 
 // ─── Guard Implementation ────────────────────────────────────────────
@@ -98,6 +107,8 @@ export class SentinelGuard {
   private reputationEngine: ReputationEngine;
   private revocationManager: RevocationManager;
   private attestationManager: AttestationManager;
+  private offlineManager: OfflineManager;
+  private safetyPipeline: SafetyPipeline | undefined;
   private seenNonces = new Set<string>();
 
   constructor(config: SentinelGuardConfig) {
@@ -109,6 +120,8 @@ export class SentinelGuard {
     this.reputationEngine = config.reputationEngine ?? new ReputationEngine();
     this.revocationManager = config.revocationManager ?? new RevocationManager();
     this.attestationManager = config.attestationManager ?? new AttestationManager();
+    this.offlineManager = config.offlineManager ?? new OfflineManager();
+    this.safetyPipeline = config.safetyPipeline;
   }
 
   /**
@@ -131,6 +144,7 @@ export class SentinelGuard {
       scope: false,
       revocation: false,
       attestation: false,
+      safety: false,
     };
 
     // 1. Identity — verify caller DID is resolvable
@@ -297,6 +311,28 @@ export class SentinelGuard {
     }
 
     // All checks passed
+    // 7. Offline mode evaluation
+    const offlineDecision = this.offlineManager.evaluateTrustDecision(
+      request.callerDid,
+      request.credentials?.[0]?.issuer
+    );
+    if (offlineDecision.action === 'deny') {
+      await this.audit('handshake_failed', request.callerDid, 'failure', offlineDecision.reason);
+      return { allowed: false, reason: `Offline policy denied: ${offlineDecision.reason}`, checks, offlineDecision };
+    }
+
+    // 8. Content safety (if pipeline configured)
+    let safetyResult: SafetyCheckResult | undefined;
+    if (this.safetyPipeline && request.authPayload) {
+      const safetyCheck = await this.safetyPipeline.preDispatch(request.authPayload);
+      safetyResult = safetyCheck.result;
+      if (!safetyCheck.allowed) {
+        await this.audit('intent_rejected', request.callerDid, 'failure', `Content safety: ${safetyResult.violations[0]?.description}`);
+        return { allowed: false, reason: `Content safety blocked: ${safetyResult.violations[0]?.description}`, checks, safetyResult };
+      }
+    }
+    checks.safety = true;
+
     await this.audit('vc_verified', request.callerDid, 'success', undefined, {
       tool: request.toolName,
       credentialCount: request.credentials?.length ?? 0,
@@ -306,6 +342,8 @@ export class SentinelGuard {
       allowed: true,
       checks,
       callerReputation: reputation,
+      offlineDecision,
+      safetyResult,
     };
   }
 
@@ -345,6 +383,20 @@ export class SentinelGuard {
    */
   getAttestationManager(): AttestationManager {
     return this.attestationManager;
+  }
+
+  /**
+   * Get the offline manager for cache/policy control.
+   */
+  getOfflineManager(): OfflineManager {
+    return this.offlineManager;
+  }
+
+  /**
+   * Get the safety pipeline (if configured).
+   */
+  getSafetyPipeline(): SafetyPipeline | undefined {
+    return this.safetyPipeline;
   }
 
   private async audit(
