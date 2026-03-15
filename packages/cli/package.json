@@ -1,0 +1,32 @@
+{
+  "name": "@sentinel/cli",
+  "version": "0.1.0",
+  "description": "CLI tool for the Agent Trust Layer — identity, credentials, signing, and trust operations",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "sentinel": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@sentinel/core": "*",
+    "@sentinel/audit": "*",
+    "@sentinel/handshake": "*",
+    "@sentinel/reputation": "*",
+    "@sentinel/recovery": "*",
+    "commander": "^13.0.0",
+    "chalk": "^5.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "Apache-2.0"
+}

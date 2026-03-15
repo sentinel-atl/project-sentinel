@@ -1,0 +1,17 @@
+{
+  "name": "two-agent-handshake",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo": "tsx demo.ts"
+  },
+  "dependencies": {
+    "@sentinel/core": "*",
+    "@sentinel/handshake": "*",
+    "@sentinel/reputation": "*",
+    "@sentinel/audit": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
+  }
+}
