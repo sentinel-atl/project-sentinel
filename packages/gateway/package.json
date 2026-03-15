@@ -1,7 +1,7 @@
 {
-  "name": "@sentinel/reputation",
+  "name": "@sentinel/gateway",
   "version": "0.1.0",
-  "description": "Weighted reputation scoring with negative vouches, Sybil resistance, and rate-limited vouching",
+  "description": "MCP Security Gateway — drop-in proxy adding identity, reputation, safety, and audit to any MCP server",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,14 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/core": "*"
+    "@sentinel/core": "*",
+    "@sentinel/mcp-plugin": "*",
+    "@sentinel/sdk": "*",
+    "@sentinel/audit": "*",
+    "@sentinel/reputation": "*",
+    "@sentinel/revocation": "*",
+    "@sentinel/safety": "*",
+    "@sentinel/offline": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
@@ -29,16 +36,16 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/nickthetj/project-sentinel.git",
-    "directory": "packages/reputation"
+    "directory": "packages/gateway"
   },
   "keywords": [
-    "ai-agent",
-    "trust",
-    "identity",
-    "did",
-    "verifiable-credentials",
+    "sentinel",
     "mcp",
-    "security"
+    "gateway",
+    "security",
+    "ai-agents",
+    "trust",
+    "proxy"
   ],
   "homepage": "https://github.com/nickthetj/project-sentinel#readme",
   "bugs": {

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentinel — The Agent Trust Layer</title>
+  <meta name="description" content="Identity, credentials, and reputation for AI agents. The missing trust layer for MCP and A2A.">
+  <meta property="og:title" content="Sentinel — The Agent Trust Layer">
+  <meta property="og:description" content="Identity, credentials, and reputation for AI agents. Zero-trust handshake, emergency kill switch, content safety, offline mode.">
+  <meta property="og:type" content="website">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #e0e0e8;
+      --muted: #8888aa;
+      --accent: #6366f1;
+      --accent2: #22d3ee;
+      --green: #22c55e;
+      --orange: #f97316;
+      --red: #ef4444;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+      background: var(--surface);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      overflow-x: auto;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; }
+
+    /* Nav */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+    .logo { font-size: 1.2em; font-weight: 700; color: var(--text); }
+    .logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 24px; }
+    .nav-links a { color: var(--muted); font-size: 0.95em; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .hero h1 {
+      font-size: 3.2em;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent2) 50%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p { font-size: 1.25em; color: var(--muted); max-width: 600px; margin: 0 auto 32px; }
+    .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1em;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: #5558e6; text-decoration: none; }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); text-decoration: none; }
+
+    /* Install bar */
+    .install {
+      text-align: center;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+    }
+    .install pre {
+      display: inline-block;
+      font-size: 1.1em;
+      padding: 14px 32px;
+      border-color: var(--accent);
+    }
+
+    /* Stats */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      padding: 40px 24px;
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat .num { font-size: 2.4em; font-weight: 800; color: var(--accent2); }
+    .stat .label { color: var(--muted); font-size: 0.9em; margin-top: 4px; }
+
+    /* Section */
+    section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 60px 24px;
+    }
+    section h2 {
+      font-size: 2em;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    section .subtitle {
+      text-align: center;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 48px;
+    }
+
+    /* Feature grid */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+    }
+    .feature .icon { font-size: 1.8em; margin-bottom: 12px; }
+    .feature h3 { font-size: 1.15em; margin-bottom: 8px; }
+    .feature p { color: var(--muted); font-size: 0.95em; }
+
+    /* Comparison table */
+    .comparison { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95em;
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.05em; }
+    td:first-child { text-align: left; font-weight: 600; }
+    .yes { color: var(--green); }
+    .no { color: #444; }
+
+    /* Code section */
+    .code-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+    .code-section .text h3 { font-size: 1.3em; margin-bottom: 12px; }
+    .code-section .text p { color: var(--muted); margin-bottom: 16px; }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 80px 24px;
+      background: linear-gradient(180deg, transparent 0%, rgba(99,102,241,0.05) 100%);
+    }
+    .cta h2 { font-size: 2.2em; margin-bottom: 16px; }
+    .cta p { color: var(--muted); margin-bottom: 32px; max-width: 500px; margin-left: auto; margin-right: auto; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: var(--muted);
+      font-size: 0.9em;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.2em; }
+      .stats { gap: 24px; }
+      .code-section { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">🛡️ <span>Sentinel</span></div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#compare">Compare</a>
+    <a href="#quickstart">Quick Start</a>
+    <a href="https://github.com/nickthetj/project-sentinel">GitHub</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>The Trust Layer for AI Agents</h1>
+  <p>Identity, credentials, and reputation infrastructure. The missing security layer for MCP, A2A, and every agent framework.</p>
+  <div class="hero-buttons">
+    <a href="https://github.com/nickthetj/project-sentinel" class="btn btn-primary">⭐ Star on GitHub</a>
+    <a href="#quickstart" class="btn btn-secondary">Get Started →</a>
+  </div>
+</div>
+
+<div class="install">
+  <pre><code>npm install @sentinel/sdk</code></pre>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="num">16</div><div class="label">Packages</div></div>
+  <div class="stat"><div class="num">253</div><div class="label">Tests</div></div>
+  <div class="stat"><div class="num">5</div><div class="label">Protocol Specs</div></div>
+  <div class="stat"><div class="num">&lt;5s</div><div class="label">Kill Switch</div></div>
+  <div class="stat"><div class="num">0</div><div class="label">External Deps*</div></div>
+</div>
+
+<section id="features">
+  <h2>Everything Agents Need to Trust</h2>
+  <p class="subtitle">From human intent to action execution — every step signed, scoped, and auditable.</p>
+  <div class="features">
+    <div class="feature">
+      <div class="icon">🔐</div>
+      <h3>DID Identity</h3>
+      <p>W3C <code>did:key</code> with Ed25519. Every agent gets a cryptographic identity. No central authority needed.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">📜</div>
+      <h3>Verifiable Credentials</h3>
+      <p>W3C VC Data Model v2.0. Scoped permissions, delegation chains, and expiry. Scope can only narrow, never widen.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🤝</div>
+      <h3>Zero-Trust Handshake</h3>
+      <p>5-step mutual verification with rate limiting and circuit breakers. No agent is trusted by default.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🎯</div>
+      <h3>Proof of Intent</h3>
+      <p>Signed, time-bounded declarations of what an agent intends to do and who authorized it. Unique to Sentinel.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🚨</div>
+      <h3>Emergency Kill Switch</h3>
+      <p>Revoke any agent in under 5 seconds. Cascade to all delegates. Signed proof of termination.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">⭐</div>
+      <h3>Reputation Scoring</h3>
+      <p>Weighted scores with 90-day decay, negative vouches (2x weight), Sybil-resistant rate limiting, and quarantine.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🛡️</div>
+      <h3>Content Safety</h3>
+      <p>Pre-dispatch and post-response inspection. Detects prompt injection, jailbreak, PII leaks. Pluggable classifiers.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">📡</div>
+      <h3>Offline Mode</h3>
+      <p>LRU trust caches, CRDT reputation merge, pending transaction queues. Works when connectivity is degraded.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🔌</div>
+      <h3>Framework Adapters</h3>
+      <p>Drop-in wrappers for LangChain, CrewAI, AutoGen, and OpenAI Agents SDK. Zero framework dependencies.</p>
+    </div>
+  </div>
+</section>
+
+<section id="compare">
+  <h2>What Nobody Else Does</h2>
+  <p class="subtitle">Sentinel is the only project with the full trust pipeline.</p>
+  <div class="comparison">
+    <table>
+      <thead>
+        <tr>
+          <th>Capability</th><th>Sentinel</th><th>MCP</th><th>A2A</th><th>Others</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Agent Identity (DID)</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="yes">✅</td></tr>
+        <tr><td>Verifiable Credentials (W3C)</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td>Partial</td></tr>
+        <tr><td>Proof of Intent</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Zero-Trust Handshake</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Delegation + Scope Narrowing</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Negative Reputation + Quarantine</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Emergency Kill Switch</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Step-Up Auth</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Content Safety Pipeline</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Offline/Degraded Mode</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Tamper-Evident Audit</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td>Partial</td></tr>
+        <tr><td>Key Recovery (Shamir)</td><td class="yes">✅</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="quickstart">
+  <h2>Running in 5 Lines</h2>
+  <p class="subtitle">Add trust to your agent in under a minute.</p>
+  <div class="code-section">
+    <div class="text">
+      <h3>For Developers</h3>
+      <p>The SDK wires up identity, credentials, reputation, safety, offline mode, and audit logging with a single factory call.</p>
+      <p>Issue VCs, verify trust, check content safety, go offline, merge reputation — all from one object.</p>
+      <h3 style="margin-top:24px">For MCP Servers</h3>
+      <p>Drop <code>SentinelGuard</code> into your MCP tool handler. 10-step verification pipeline runs automatically on every tool call.</p>
+    </div>
+    <div>
+      <pre><code><span style="color:#8888aa">// SDK — 5 lines to trust</span>
+<span style="color:#c792ea">import</span> { createTrustedAgent } <span style="color:#c792ea">from</span> <span style="color:#c3e88d">'@sentinel/sdk'</span>;
+
+<span style="color:#c792ea">const</span> agent = <span style="color:#c792ea">await</span> createTrustedAgent({
+  label: <span style="color:#c3e88d">'my-travel-bot'</span>,
+  enableSafety: <span style="color:#f78c6c">true</span>,
+});
+
+<span style="color:#8888aa">// Issue credentials</span>
+<span style="color:#c792ea">const</span> vc = <span style="color:#c792ea">await</span> agent.issueVC({
+  subjectDid: otherAgent.did,
+  scope: [<span style="color:#c3e88d">'flights:book'</span>],
+});
+
+<span style="color:#8888aa">// Check content safety</span>
+<span style="color:#c792ea">const</span> safety = <span style="color:#c792ea">await</span> agent.checkSafety(userInput);
+
+<span style="color:#8888aa">// Go offline with cached trust</span>
+agent.goOffline();
+<span style="color:#c792ea">const</span> decision = agent.evaluateTrust(vc);</code></pre>
+    </div>
+  </div>
+</section>
+
+<div class="cta">
+  <h2>Ready to Add Trust?</h2>
+  <p>Open source. Apache 2.0. Built with audited cryptography. 253 tests passing.</p>
+  <div class="hero-buttons">
+    <a href="https://github.com/nickthetj/project-sentinel" class="btn btn-primary">View on GitHub</a>
+    <a href="https://github.com/nickthetj/project-sentinel/tree/main/docs/blog-launch-post.md" class="btn btn-secondary">Read the Blog Post</a>
+  </div>
+</div>
+
+<footer>
+  <p>* Only <code>@noble/ed25519</code> and <code>@noble/hashes</code> — audited, zero-dependency crypto libraries.</p>
+  <p style="margin-top:8px">© 2026 Project Sentinel Contributors · Apache 2.0 License</p>
+</footer>
+
+</body>
+</html>

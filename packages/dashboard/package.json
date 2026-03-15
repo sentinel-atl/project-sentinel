@@ -32,5 +32,27 @@
     "@types/node": "^20.0.0",
     "tsx": "^4.7.0"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nickthetj/project-sentinel.git",
+    "directory": "packages/dashboard"
+  },
+  "keywords": [
+    "ai-agent",
+    "trust",
+    "identity",
+    "did",
+    "verifiable-credentials",
+    "mcp",
+    "security"
+  ],
+  "homepage": "https://github.com/nickthetj/project-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/nickthetj/project-sentinel/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

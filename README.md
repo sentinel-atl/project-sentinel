@@ -2,9 +2,12 @@
 
 **The Agent Trust Layer — identity, credentials, and reputation for AI agents.**
 
+[![CI](https://github.com/nickthetj/project-sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/nickthetj/project-sentinel/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)]()
-[![Protocol Version](https://img.shields.io/badge/Protocol-v1.0-green.svg)]()
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/Tests-253%20passing-brightgreen.svg)]()
+[![Packages](https://img.shields.io/badge/Packages-16-orange.svg)]()
+[![Protocol Version](https://img.shields.io/badge/Protocol-v1.0-green.svg)](specs/)
 
 ---
 

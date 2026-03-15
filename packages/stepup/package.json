@@ -5,7 +5,12 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -19,5 +24,28 @@
   "devDependencies": {
     "vitest": "^3.2.4",
     "typescript": "^5.7.0"
-  }
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nickthetj/project-sentinel.git",
+    "directory": "packages/stepup"
+  },
+  "keywords": [
+    "ai-agent",
+    "trust",
+    "identity",
+    "did",
+    "verifiable-credentials",
+    "mcp",
+    "security"
+  ],
+  "homepage": "https://github.com/nickthetj/project-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/nickthetj/project-sentinel/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

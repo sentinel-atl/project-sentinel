@@ -15,6 +15,27 @@
   "devDependencies": {
     "typescript": "^5.7.0"
   },
-  "files": ["dist", "README.md"],
-  "license": "MIT"
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nickthetj/project-sentinel.git",
+    "directory": "packages/hsm"
+  },
+  "keywords": [
+    "ai-agent",
+    "trust",
+    "identity",
+    "did",
+    "verifiable-credentials",
+    "mcp",
+    "security"
+  ],
+  "homepage": "https://github.com/nickthetj/project-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/nickthetj/project-sentinel/issues"
+  }
 }
