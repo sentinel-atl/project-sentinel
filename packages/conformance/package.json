@@ -1,0 +1,37 @@
+{
+  "name": "@sentinel/conformance",
+  "version": "0.1.0",
+  "description": "STP Conformance Test Suite — verify any implementation against the Sentinel Trust Protocol spec",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@sentinel/core": "*",
+    "@sentinel/server": "*"
+  },
+  "keywords": [
+    "sentinel",
+    "stp",
+    "conformance",
+    "trust-protocol",
+    "agent-trust"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nickthetj/project-sentinel",
+    "directory": "packages/conformance"
+  },
+  "homepage": "https://github.com/nickthetj/project-sentinel/blob/main/specs/sentinel-trust-protocol-v1.0.md"
+}

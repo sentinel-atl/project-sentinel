@@ -65,3 +65,14 @@ export {
   checkPassportCompatibility,
   type AgentPassport,
 } from './passport.js';
+
+// STP Token (Sentinel Trust Protocol Token)
+export {
+  createSTPToken,
+  verifySTPToken,
+  decodeSTPToken,
+  type STPTokenHeader,
+  type STPTokenPayload,
+  type CreateSTPTokenOptions,
+  type VerifySTPTokenResult,
+} from './stp-token.js';

@@ -1,0 +1,835 @@
+openapi: 3.1.0
+info:
+  title: Sentinel Trust Protocol (STP) API
+  version: 1.0.0
+  description: >
+    Language-agnostic REST API for AI agent identity, credentials, reputation,
+    and audit. The "OAuth for AI agents."
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    name: Project Sentinel
+    url: https://github.com/nickthetj/project-sentinel
+
+servers:
+  - url: http://localhost:3100
+    description: Local development server
+
+security:
+  - stpToken: []
+
+components:
+  securitySchemes:
+    stpToken:
+      type: http
+      scheme: bearer
+      bearerFormat: STP
+      description: >
+        STP Token: `STP.<header-b64url>.<payload-b64url>.<signature-b64url>`.
+        Authenticate via `Authorization: STP <token>`.
+
+  schemas:
+    DID:
+      type: string
+      pattern: "^did:key:z6Mk"
+      example: "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+
+    AgentIdentity:
+      type: object
+      properties:
+        did:
+          $ref: "#/components/schemas/DID"
+        keyId:
+          type: string
+        publicKey:
+          type: string
+          description: Base64url-encoded 32-byte Ed25519 public key
+        createdAt:
+          type: string
+          format: date-time
+      required: [did, keyId, publicKey, createdAt]
+
+    DIDDocument:
+      type: object
+      properties:
+        "@context":
+          type: array
+          items:
+            type: string
+        id:
+          $ref: "#/components/schemas/DID"
+        verificationMethod:
+          type: array
+          items:
+            type: object
+        authentication:
+          type: array
+          items:
+            type: string
+        assertionMethod:
+          type: array
+          items:
+            type: string
+
+    VerifiableCredential:
+      type: object
+      properties:
+        "@context":
+          type: array
+          items:
+            type: string
+        id:
+          type: string
+          format: uri
+          example: "urn:uuid:550e8400-e29b-41d4-a716-446655440000"
+        type:
+          type: array
+          items:
+            type: string
+          example: ["VerifiableCredential", "AgentAuthorizationCredential"]
+        issuer:
+          $ref: "#/components/schemas/DID"
+        issuanceDate:
+          type: string
+          format: date-time
+        expirationDate:
+          type: string
+          format: date-time
+        credentialSubject:
+          $ref: "#/components/schemas/CredentialSubject"
+        proof:
+          $ref: "#/components/schemas/CredentialProof"
+      required: ["@context", id, type, issuer, issuanceDate, expirationDate, credentialSubject, proof]
+
+    CredentialSubject:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/DID"
+        scope:
+          type: array
+          items:
+            type: string
+          example: ["flights:book", "flights:search"]
+        maxDelegationDepth:
+          type: integer
+          minimum: 0
+        sensitivityLevel:
+          type: string
+          enum: [low, medium, high, critical]
+      required: [id]
+
+    CredentialProof:
+      type: object
+      properties:
+        type:
+          type: string
+          const: Ed25519Signature2020
+        created:
+          type: string
+          format: date-time
+        verificationMethod:
+          type: string
+        proofPurpose:
+          type: string
+          const: assertionMethod
+        proofValue:
+          type: string
+          description: Base64url-encoded Ed25519 signature
+
+    CredentialType:
+      type: string
+      enum:
+        - AgentAuthorizationCredential
+        - DelegationCredential
+        - ComplianceCredential
+        - ReputationCredential
+        - NegativeReputationCredential
+        - CodeAttestationCredential
+
+    ReputationScore:
+      type: object
+      properties:
+        did:
+          $ref: "#/components/schemas/DID"
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 72.5
+        totalVouches:
+          type: integer
+        positiveVouches:
+          type: integer
+        negativeVouches:
+          type: integer
+        isQuarantined:
+          type: boolean
+        quarantineReason:
+          type: string
+          nullable: true
+        lastUpdated:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [live, cached, unavailable]
+      required: [did, score, totalVouches, positiveVouches, negativeVouches, isQuarantined, lastUpdated, source]
+
+    IntentEnvelope:
+      type: object
+      properties:
+        intentId:
+          type: string
+        version:
+          type: string
+          const: "1.0"
+        action:
+          type: string
+        scope:
+          type: array
+          items:
+            type: string
+        principalDid:
+          $ref: "#/components/schemas/DID"
+        agentDid:
+          $ref: "#/components/schemas/DID"
+        delegationChain:
+          type: array
+          items:
+            type: string
+        expiry:
+          type: string
+          format: date-time
+        nonce:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signature:
+          type: string
+      required: [intentId, version, action, scope, principalDid, agentDid, delegationChain, expiry, nonce, signature]
+
+    SafetyCheckResult:
+      type: object
+      properties:
+        safe:
+          type: boolean
+        blocked:
+          type: boolean
+        violations:
+          type: array
+          items:
+            type: object
+        totalLatencyMs:
+          type: number
+
+    RevocationList:
+      type: object
+      properties:
+        version:
+          type: integer
+        issuerDid:
+          $ref: "#/components/schemas/DID"
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              credentialId:
+                type: string
+              revokedAt:
+                type: string
+                format: date-time
+              reason:
+                type: string
+        signature:
+          type: string
+
+    STPConfiguration:
+      type: object
+      properties:
+        issuer:
+          type: string
+          format: uri
+        protocol_version:
+          type: string
+          example: "STP/1.0"
+        server_did:
+          $ref: "#/components/schemas/DID"
+        endpoints:
+          type: object
+        supported_credential_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/CredentialType"
+        supported_did_methods:
+          type: array
+          items:
+            type: string
+        cryptographic_suites:
+          type: array
+          items:
+            type: string
+        reputation_algorithm:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - INVALID_DID
+                - DID_NOT_FOUND
+                - INVALID_SIGNATURE
+                - TOKEN_EXPIRED
+                - NONCE_REUSE
+                - CREDENTIAL_EXPIRED
+                - CREDENTIAL_REVOKED
+                - DID_REVOKED
+                - INSUFFICIENT_SCOPE
+                - INSUFFICIENT_REPUTATION
+                - REPUTATION_QUARANTINED
+                - RATE_LIMITED
+                - SAFETY_VIOLATION
+                - INTENT_REQUIRED
+                - INTENT_INVALID
+                - TOOL_BLOCKED
+                - HANDSHAKE_TIMEOUT
+                - INTERNAL_ERROR
+                - NOT_FOUND
+            message:
+              type: string
+            details:
+              type: object
+          required: [code, message]
+
+paths:
+  /.well-known/sentinel-configuration:
+    get:
+      operationId: getConfiguration
+      summary: STP Discovery
+      description: Returns the server's STP configuration and capabilities
+      tags: [Discovery]
+      security: []
+      responses:
+        "200":
+          description: STP configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/STPConfiguration"
+
+  /v1/identity:
+    post:
+      operationId: createIdentity
+      summary: Create a new agent identity
+      tags: [Identity]
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  description: Human-readable label for the identity
+      responses:
+        "201":
+          description: Identity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentIdentity"
+
+  /v1/identity/{did}:
+    get:
+      operationId: resolveDID
+      summary: Resolve a DID to a DID Document
+      tags: [Identity]
+      security: []
+      parameters:
+        - name: did
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/DID"
+      responses:
+        "200":
+          description: DID Document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DIDDocument"
+        "400":
+          description: Invalid DID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/token:
+    post:
+      operationId: createToken
+      summary: Issue an STP authentication token
+      description: Creates a signed STP token for a managed identity
+      tags: [Authentication]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                did:
+                  $ref: "#/components/schemas/DID"
+                scope:
+                  type: array
+                  items:
+                    type: string
+                audience:
+                  type: string
+                  format: uri
+                expiresInSec:
+                  type: integer
+                  default: 300
+              required: [did]
+      responses:
+        "201":
+          description: Token created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: "STP.<header>.<payload>.<signature>"
+        "404":
+          description: DID not managed by this server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/credentials:
+    post:
+      operationId: issueCredential
+      summary: Issue a Verifiable Credential
+      tags: [Credentials]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  $ref: "#/components/schemas/CredentialType"
+                subjectDid:
+                  $ref: "#/components/schemas/DID"
+                scope:
+                  type: array
+                  items:
+                    type: string
+                maxDelegationDepth:
+                  type: integer
+                sensitivityLevel:
+                  type: string
+                  enum: [low, medium, high, critical]
+                expiresInMs:
+                  type: integer
+                  description: Lifetime in milliseconds
+              required: [type, subjectDid]
+      responses:
+        "201":
+          description: Credential issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifiableCredential"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/credentials/verify:
+    post:
+      operationId: verifyCredential
+      summary: Verify a Verifiable Credential
+      tags: [Credentials]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                credential:
+                  $ref: "#/components/schemas/VerifiableCredential"
+              required: [credential]
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  checks:
+                    type: object
+                    properties:
+                      signature:
+                        type: boolean
+                      expiry:
+                        type: boolean
+                      issuerResolvable:
+                        type: boolean
+                      revocation:
+                        type: boolean
+                  error:
+                    type: string
+
+  /v1/credentials/revoke:
+    post:
+      operationId: revokeCredential
+      summary: Revoke a Verifiable Credential
+      tags: [Credentials]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                credentialId:
+                  type: string
+                  format: uri
+                reason:
+                  type: string
+                  enum: [key_compromise, credential_expired_early, policy_violation, scope_violation, agent_decommissioned, emergency, key_rotation, manual]
+              required: [credentialId, reason]
+      responses:
+        "200":
+          description: Credential revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked:
+                    type: boolean
+                  credentialId:
+                    type: string
+
+  /v1/reputation/{did}:
+    get:
+      operationId: getReputation
+      summary: Query an agent's reputation score
+      tags: [Reputation]
+      security: []
+      parameters:
+        - name: did
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/DID"
+      responses:
+        "200":
+          description: Reputation score
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReputationScore"
+
+  /v1/reputation/vouch:
+    post:
+      operationId: submitVouch
+      summary: Submit a reputation vouch for an agent
+      tags: [Reputation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subjectDid:
+                  $ref: "#/components/schemas/DID"
+                polarity:
+                  type: string
+                  enum: [positive, negative]
+                weight:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                reason:
+                  type: string
+                  nullable: true
+                  enum: [timeout, incorrect_output, scope_violation, content_safety, unresponsive, data_leak, null]
+              required: [subjectDid, polarity, weight]
+      responses:
+        "201":
+          description: Vouch accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: boolean
+                  newScore:
+                    type: number
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/intents:
+    post:
+      operationId: createIntent
+      summary: Create a signed intent envelope
+      tags: [Intent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                scope:
+                  type: array
+                  items:
+                    type: string
+                principalDid:
+                  $ref: "#/components/schemas/DID"
+                delegationChain:
+                  type: array
+                  items:
+                    type: string
+                expiresInMs:
+                  type: integer
+              required: [action, scope, principalDid]
+      responses:
+        "201":
+          description: Intent created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntentEnvelope"
+
+  /v1/intents/validate:
+    post:
+      operationId: validateIntent
+      summary: Validate an intent envelope
+      tags: [Intent]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                intent:
+                  $ref: "#/components/schemas/IntentEnvelope"
+              required: [intent]
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  checks:
+                    type: object
+                    properties:
+                      signature:
+                        type: boolean
+                      expiry:
+                        type: boolean
+                      nonce:
+                        type: boolean
+                      scopeValid:
+                        type: boolean
+
+  /v1/revocation/status/{did}:
+    get:
+      operationId: getRevocationStatus
+      summary: Check if a DID is revoked
+      tags: [Revocation]
+      security: []
+      parameters:
+        - name: did
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/DID"
+      responses:
+        "200":
+          description: Revocation status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  did:
+                    $ref: "#/components/schemas/DID"
+                  trusted:
+                    type: boolean
+                  didRevoked:
+                    type: boolean
+                  reason:
+                    type: string
+                    nullable: true
+
+  /v1/revocation/list:
+    get:
+      operationId: getRevocationList
+      summary: Get the signed revocation list
+      tags: [Revocation]
+      security: []
+      responses:
+        "200":
+          description: Signed revocation list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevocationList"
+
+  /v1/revocation/kill-switch:
+    post:
+      operationId: activateKillSwitch
+      summary: Emergency kill switch — cascade revocation
+      tags: [Revocation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetDid:
+                  $ref: "#/components/schemas/DID"
+                reason:
+                  type: string
+                cascade:
+                  type: boolean
+                  default: true
+                downstreamDids:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/DID"
+              required: [targetDid, reason]
+      responses:
+        "200":
+          description: Kill switch activated
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /v1/safety/check:
+    post:
+      operationId: checkSafety
+      summary: Check content for safety violations
+      tags: [Safety]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+              required: [text]
+      responses:
+        "200":
+          description: Safety check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyCheckResult"
+
+  /v1/audit:
+    get:
+      operationId: getAuditLog
+      summary: Fetch audit log entries
+      tags: [Audit]
+      security: []
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                  totalEntries:
+                    type: integer
+
+  /v1/audit/verify:
+    post:
+      operationId: verifyAuditIntegrity
+      summary: Verify audit log hash chain integrity
+      tags: [Audit]
+      security: []
+      responses:
+        "200":
+          description: Integrity verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  totalEntries:
+                    type: integer
+
+tags:
+  - name: Discovery
+    description: STP configuration and capability discovery
+  - name: Identity
+    description: Agent identity creation and DID resolution
+  - name: Authentication
+    description: STP token creation and verification
+  - name: Credentials
+    description: Verifiable Credential lifecycle
+  - name: Reputation
+    description: Agent reputation scoring and vouching
+  - name: Intent
+    description: Proof of intent envelopes
+  - name: Revocation
+    description: Credential and DID revocation
+  - name: Safety
+    description: Content safety screening
+  - name: Audit
+    description: Tamper-evident audit log

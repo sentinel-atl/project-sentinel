@@ -1,0 +1,59 @@
+{
+  "name": "@sentinel/server",
+  "version": "0.1.0",
+  "description": "STP-compliant HTTP server — exposes Sentinel's trust pipeline as a language-agnostic REST API",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@sentinel/core": "*",
+    "@sentinel/audit": "*",
+    "@sentinel/reputation": "*",
+    "@sentinel/revocation": "*",
+    "@sentinel/handshake": "*",
+    "@sentinel/safety": "*",
+    "@sentinel/offline": "*",
+    "@sentinel/gateway": "*",
+    "@sentinel/sdk": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nickthetj/project-sentinel.git",
+    "directory": "packages/server"
+  },
+  "keywords": [
+    "sentinel",
+    "stp",
+    "trust-protocol",
+    "http-server",
+    "ai-agents",
+    "authentication",
+    "reputation"
+  ],
+  "homepage": "https://github.com/nickthetj/project-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/nickthetj/project-sentinel/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
