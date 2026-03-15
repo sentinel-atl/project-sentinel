@@ -4,7 +4,7 @@ import {
   generateKeyPair,
   InMemoryKeyProvider,
   publicKeyToDid,
-} from '@sentinel/core';
+} from '@sentinel-atl/core';
 
 async function makeIdentity(keyProvider: InMemoryKeyProvider, name: string) {
   await keyProvider.generate(name);
@@ -13,7 +13,7 @@ async function makeIdentity(keyProvider: InMemoryKeyProvider, name: string) {
   return { keyId: name, did };
 }
 
-describe('@sentinel/revocation', () => {
+describe('@sentinel-atl/revocation', () => {
   let keyProvider: InMemoryKeyProvider;
   let manager: RevocationManager;
   let admin: { keyId: string; did: string };

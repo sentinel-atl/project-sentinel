@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/hsm",
+  "name": "@sentinel-atl/hsm",
   "version": "0.1.0",
   "description": "HSM and secure enclave KeyProvider backends — AWS CloudHSM, Azure Managed HSM, PKCS#11, and encrypted file storage",
   "type": "module",
@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@sentinel/core": "*"
+    "@sentinel-atl/core": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

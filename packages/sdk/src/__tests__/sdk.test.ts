@@ -13,7 +13,7 @@ async function makeAgent(name: string) {
   });
 }
 
-describe('@sentinel/sdk', () => {
+describe('@sentinel-atl/sdk', () => {
   it('creates a trusted agent with a DID', async () => {
     const agent = await makeAgent('test-agent');
     expect(agent.did).toMatch(/^did:key:z6Mk/);

@@ -1,4 +1,4 @@
-# @sentinel/hsm
+# @sentinel-atl/hsm
 
 HSM and secure enclave KeyProvider backends for the Agent Trust Layer.
 
@@ -14,7 +14,7 @@ HSM and secure enclave KeyProvider backends for the Agent Trust Layer.
 ## Install
 
 ```bash
-npm install @sentinel/hsm
+npm install @sentinel-atl/hsm
 ```
 
 ## EncryptedFileKeyProvider
@@ -22,7 +22,7 @@ npm install @sentinel/hsm
 Production-ready encrypted file storage using AES-256-GCM with scrypt key derivation.
 
 ```ts
-import { EncryptedFileKeyProvider } from '@sentinel/hsm';
+import { EncryptedFileKeyProvider } from '@sentinel-atl/hsm';
 
 const provider = new EncryptedFileKeyProvider({
   directory: './keys',
@@ -45,7 +45,7 @@ const sig = await provider.sign('my-agent-key', data);
 The HSM stubs implement the `KeyProvider` interface and throw informative errors telling you which SDK to install:
 
 ```ts
-import { AWSCloudHSMKeyProvider } from '@sentinel/hsm';
+import { AWSCloudHSMKeyProvider } from '@sentinel-atl/hsm';
 
 const provider = new AWSCloudHSMKeyProvider({
   clusterId: 'cluster-abc',

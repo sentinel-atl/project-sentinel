@@ -1,11 +1,11 @@
 /**
- * @sentinel/conformance — STP Conformance Test Suite
+ * @sentinel-atl/conformance — STP Conformance Test Suite
  *
  * Verifies that an STP server implementation conforms to the
  * Sentinel Trust Protocol v1.0 specification.
  *
  * Usage:
- *   # Against the reference @sentinel/server:
+ *   # Against the reference @sentinel-atl/server:
  *   npx vitest run packages/conformance
  *
  *   # Against an external server:

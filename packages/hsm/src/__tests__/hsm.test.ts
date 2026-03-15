@@ -9,7 +9,7 @@ import {
   PKCS11KeyProvider,
 } from '../index.js';
 
-describe('@sentinel/hsm', () => {
+describe('@sentinel-atl/hsm', () => {
   let tempDir: string;
 
   beforeEach(async () => {

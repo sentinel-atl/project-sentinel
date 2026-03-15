@@ -1,4 +1,4 @@
-# @sentinel/adapters
+# @sentinel-atl/adapters
 
 Framework adapters for LangChain, CrewAI, AutoGen, and OpenAI Agents SDK — integrate Sentinel trust in any AI agent framework.
 
@@ -14,13 +14,13 @@ Framework adapters for LangChain, CrewAI, AutoGen, and OpenAI Agents SDK — int
 ## Install
 
 ```bash
-npm install @sentinel/adapters
+npm install @sentinel-atl/adapters
 ```
 
 ## Quick Start
 
 ```ts
-import { withTrust, StubTrustVerifier } from '@sentinel/adapters';
+import { withTrust, StubTrustVerifier } from '@sentinel-atl/adapters';
 
 const verifier = new StubTrustVerifier({ allowed: true });
 
@@ -37,7 +37,7 @@ console.log(result); // "Result: hello"
 ### LangChain
 
 ```ts
-import { langchainToolWrapper } from '@sentinel/adapters';
+import { langchainToolWrapper } from '@sentinel-atl/adapters';
 
 const wrapped = langchainToolWrapper(verifier, {
   name: 'search',
@@ -52,7 +52,7 @@ const result = await wrapped.fn('AI safety');
 ### OpenAI Agents SDK
 
 ```ts
-import { openaiAgentGuardrail } from '@sentinel/adapters';
+import { openaiAgentGuardrail } from '@sentinel-atl/adapters';
 
 const guardrail = openaiAgentGuardrail(verifier, {
   agentDid: 'did:key:z6Mk...',

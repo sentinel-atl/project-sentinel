@@ -1,4 +1,4 @@
-# @sentinel/attestation
+# @sentinel-atl/attestation
 
 Code attestation — cryptographic proof that an agent is running verified code.
 
@@ -12,13 +12,13 @@ Code attestation — cryptographic proof that an agent is running verified code.
 ## Install
 
 ```bash
-npm install @sentinel/attestation
+npm install @sentinel-atl/attestation
 ```
 
 ## Quick Start
 
 ```ts
-import { AttestationManager, hashCode, hashDirectory } from '@sentinel/attestation';
+import { AttestationManager, hashCode, hashDirectory } from '@sentinel-atl/attestation';
 
 // Hash individual code
 const hash = hashCode('console.log("hello")');

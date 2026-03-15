@@ -1,5 +1,5 @@
 /**
- * @sentinel/handshake — Zero-Trust Agent Handshake Protocol
+ * @sentinel-atl/handshake — Zero-Trust Agent Handshake Protocol
  *
  * Before two agents share ANY data, they must complete this 5-step mutual
  * verification. Both sides prove identity and exchange credentials.
@@ -26,8 +26,8 @@ import {
   type AgentPassport,
   type KeyProvider,
   verifyVC,
-} from '@sentinel/core';
-import type { AuditLog } from '@sentinel/audit';
+} from '@sentinel-atl/core';
+import type { AuditLog } from '@sentinel-atl/audit';
 
 // ─── Protocol Messages ───────────────────────────────────────────────
 

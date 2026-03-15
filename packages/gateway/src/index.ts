@@ -1,5 +1,5 @@
 /**
- * @sentinel/gateway — MCP Security Gateway
+ * @sentinel-atl/gateway — MCP Security Gateway
  *
  * A drop-in proxy that sits between MCP clients and MCP servers,
  * adding Sentinel's full trust pipeline to every tool call:
@@ -29,24 +29,24 @@ import {
   type NegativeReason,
   InMemoryKeyProvider,
   createIdentity,
-} from '@sentinel/core';
-import { AuditLog, type AuditEventType } from '@sentinel/audit';
-import { ReputationEngine, type ReputationScore } from '@sentinel/reputation';
-import { RevocationManager, type KillSwitchEvent, type RevocationReason } from '@sentinel/revocation';
-import { OfflineManager, type DegradedDecision } from '@sentinel/offline';
+} from '@sentinel-atl/core';
+import { AuditLog, type AuditEventType } from '@sentinel-atl/audit';
+import { ReputationEngine, type ReputationScore } from '@sentinel-atl/reputation';
+import { RevocationManager, type KillSwitchEvent, type RevocationReason } from '@sentinel-atl/revocation';
+import { OfflineManager, type DegradedDecision } from '@sentinel-atl/offline';
 import {
   SafetyPipeline,
   RegexClassifier,
   type SafetyCheckResult,
   type ContentClassifier,
-} from '@sentinel/safety';
+} from '@sentinel-atl/safety';
 import {
   createSentinelGuard,
   SentinelGuard,
   type SentinelGuardConfig,
   type MCPToolCallRequest,
   type VerifyResult,
-} from '@sentinel/mcp-plugin';
+} from '@sentinel-atl/mcp-plugin';
 
 // ─── Configuration Types ─────────────────────────────────────────────
 
@@ -610,9 +610,9 @@ export async function createGateway(config: GatewayConfig): Promise<MCPSecurityG
 
 // ─── Re-exports ──────────────────────────────────────────────────────
 
-export type { MCPToolCallRequest, VerifyResult, SentinelGuardConfig } from '@sentinel/mcp-plugin';
-export type { SafetyCheckResult, ContentClassifier } from '@sentinel/safety';
-export type { ReputationScore } from '@sentinel/reputation';
-export type { RevocationReason, KillSwitchEvent } from '@sentinel/revocation';
-export type { DegradedDecision } from '@sentinel/offline';
-export type { VerifiableCredential, IntentEnvelope, KeyProvider } from '@sentinel/core';
+export type { MCPToolCallRequest, VerifyResult, SentinelGuardConfig } from '@sentinel-atl/mcp-plugin';
+export type { SafetyCheckResult, ContentClassifier } from '@sentinel-atl/safety';
+export type { ReputationScore } from '@sentinel-atl/reputation';
+export type { RevocationReason, KillSwitchEvent } from '@sentinel-atl/revocation';
+export type { DegradedDecision } from '@sentinel-atl/offline';
+export type { VerifiableCredential, IntentEnvelope, KeyProvider } from '@sentinel-atl/core';

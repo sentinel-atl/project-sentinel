@@ -1,5 +1,5 @@
 /**
- * @sentinel/adapters — Multi-Framework AI Agent Trust Adapters
+ * @sentinel-atl/adapters — Multi-Framework AI Agent Trust Adapters
  *
  * Plug Sentinel's trust layer into any AI agent framework with
  * minimal code changes. Each adapter wraps the framework's tool/agent
@@ -13,14 +13,14 @@
  *
  * These adapters are framework-agnostic wrappers. They don't depend on
  * the framework SDKs at runtime (no peer deps) — they define the shapes
- * and hooks that framework users wire in. This keeps @sentinel/adapters
+ * and hooks that framework users wire in. This keeps @sentinel-atl/adapters
  * lightweight and avoids version conflicts.
  *
  * Blueprint ref: Phase 3, Milestone 3d (Multi-Framework Adapters)
  */
 
-import type { VerifiableCredential, IntentEnvelope } from '@sentinel/core';
-import type { ReputationScore } from '@sentinel/reputation';
+import type { VerifiableCredential, IntentEnvelope } from '@sentinel-atl/core';
+import type { ReputationScore } from '@sentinel-atl/reputation';
 
 // ─── Common Types ────────────────────────────────────────────────────
 

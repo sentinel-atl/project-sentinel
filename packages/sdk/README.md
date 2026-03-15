@@ -1,4 +1,4 @@
-# @sentinel/sdk
+# @sentinel-atl/sdk
 
 Developer-friendly SDK for the Agent Trust Layer — add trust to your agent in ~5 lines.
 
@@ -12,13 +12,13 @@ Developer-friendly SDK for the Agent Trust Layer — add trust to your agent in 
 ## Install
 
 ```bash
-npm install @sentinel/sdk
+npm install @sentinel-atl/sdk
 ```
 
 ## Quick Start
 
 ```ts
-import { createTrustedAgent } from '@sentinel/sdk';
+import { createTrustedAgent } from '@sentinel-atl/sdk';
 
 const agent = await createTrustedAgent({
   label: 'my-agent',

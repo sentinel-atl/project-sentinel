@@ -8,11 +8,11 @@ import {
   publicKeyToDid,
   toBase64Url,
   textToBytes,
-} from '@sentinel/core';
-import { AuditLog } from '@sentinel/audit';
-import { ReputationEngine } from '@sentinel/reputation';
-import { RevocationManager } from '@sentinel/revocation';
-import { AttestationManager, hashCode } from '@sentinel/attestation';
+} from '@sentinel-atl/core';
+import { AuditLog } from '@sentinel-atl/audit';
+import { ReputationEngine } from '@sentinel-atl/reputation';
+import { RevocationManager } from '@sentinel-atl/revocation';
+import { AttestationManager, hashCode } from '@sentinel-atl/attestation';
 import { join } from 'node:path';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

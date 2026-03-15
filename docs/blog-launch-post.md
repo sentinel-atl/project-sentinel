@@ -97,18 +97,18 @@ Agents don't always have connectivity. Sentinel includes:
 Sentinel is a monorepo with 16 composable packages:
 
 ```
-@sentinel/core        — DID, VC, crypto, KeyProvider
-@sentinel/handshake   — Zero-trust mutual verification
-@sentinel/reputation  — Weighted scoring with quarantine
-@sentinel/audit       — Hash-chain tamper-evident logging
-@sentinel/revocation  — Kill switch, key rotation
-@sentinel/safety      — Content safety pipeline
-@sentinel/offline     — Degraded mode + CRDT merge
-@sentinel/adapters    — LangChain, CrewAI, AutoGen, OpenAI wrappers
-@sentinel/mcp-plugin  — MCP tool-call gating middleware
-@sentinel/sdk         — 5-line integration
-@sentinel/hsm         — Encrypted file + HSM key storage
-@sentinel/dashboard   — Web UI for trust visualization
+@sentinel-atl/core        — DID, VC, crypto, KeyProvider
+@sentinel-atl/handshake   — Zero-trust mutual verification
+@sentinel-atl/reputation  — Weighted scoring with quarantine
+@sentinel-atl/audit       — Hash-chain tamper-evident logging
+@sentinel-atl/revocation  — Kill switch, key rotation
+@sentinel-atl/safety      — Content safety pipeline
+@sentinel-atl/offline     — Degraded mode + CRDT merge
+@sentinel-atl/adapters    — LangChain, CrewAI, AutoGen, OpenAI wrappers
+@sentinel-atl/mcp-plugin  — MCP tool-call gating middleware
+@sentinel-atl/sdk         — 5-line integration
+@sentinel-atl/hsm         — Encrypted file + HSM key storage
+@sentinel-atl/dashboard   — Web UI for trust visualization
 ...and more
 ```
 
@@ -117,7 +117,7 @@ Every package has zero required external dependencies beyond `@noble/ed25519` an
 ## 5-Line Integration
 
 ```typescript
-import { createTrustedAgent } from '@sentinel/sdk';
+import { createTrustedAgent } from '@sentinel-atl/sdk';
 
 const agent = await createTrustedAgent({
   label: 'my-travel-bot',
@@ -144,7 +144,7 @@ Trust infrastructure must be open. You can't ask developers to bet their agent s
 ## Get Started
 
 ```bash
-npm install @sentinel/sdk
+npm install @sentinel-atl/sdk
 ```
 
 GitHub: [github.com/nickthetj/project-sentinel](https://github.com/nickthetj/project-sentinel)

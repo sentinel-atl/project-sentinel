@@ -1,5 +1,5 @@
 /**
- * @sentinel/core — Public API
+ * @sentinel-atl/core — Public API
  *
  * The Agent Trust Layer. Identity, credentials, and reputation for AI agents.
  */

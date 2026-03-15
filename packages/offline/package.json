@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/offline",
+  "name": "@sentinel-atl/offline",
   "version": "0.1.0",
   "description": "Offline and degraded mode for the Agent Trust Layer — cached trust decisions, configurable policies, CRDT-style reputation merge",
   "type": "module",
@@ -18,9 +18,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/core": "*",
-    "@sentinel/reputation": "*",
-    "@sentinel/revocation": "*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/reputation": "*",
+    "@sentinel-atl/revocation": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

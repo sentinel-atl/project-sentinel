@@ -14,7 +14,7 @@ import {
   createIdentity,
   createPassport,
   issueVC,
-} from '@sentinel/core';
+} from '@sentinel-atl/core';
 
 async function makeAgent(name: string) {
   const kp = new InMemoryKeyProvider();

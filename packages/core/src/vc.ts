@@ -1,5 +1,5 @@
 /**
- * @sentinel/core — Verifiable Credentials (VC) module
+ * @sentinel-atl/core — Verifiable Credentials (VC) module
  *
  * W3C Verifiable Credentials Data Model v2.0 implementation.
  * Supports: AgentAuthorizationCredential, DelegationCredential,

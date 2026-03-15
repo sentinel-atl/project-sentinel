@@ -11,7 +11,7 @@ import {
   type TrustVerifyResult,
 } from '../index.js';
 
-describe('@sentinel/adapters', () => {
+describe('@sentinel-atl/adapters', () => {
   let verifier: StubTrustVerifier;
 
   beforeEach(() => {

@@ -36,7 +36,7 @@ import {
   createIntent,
   validateIntent,
   createPassport,
-} from '@sentinel/core';
+} from '@sentinel-atl/core';
 import {
   createHandshakeInit,
   processInitAndRespond,
@@ -45,20 +45,20 @@ import {
   createSessionEstablished,
   HandshakeRateLimiter,
   type HandshakeConfig,
-} from '@sentinel/handshake';
-import { ReputationEngine } from '@sentinel/reputation';
-import { AuditLog } from '@sentinel/audit';
-import { RevocationManager } from '@sentinel/revocation';
-import { AttestationManager, hashCode } from '@sentinel/attestation';
-import { StepUpManager } from '@sentinel/stepup';
-import { OfflineManager } from '@sentinel/offline';
-import { SafetyPipeline, RegexClassifier, KeywordClassifier } from '@sentinel/safety';
+} from '@sentinel-atl/handshake';
+import { ReputationEngine } from '@sentinel-atl/reputation';
+import { AuditLog } from '@sentinel-atl/audit';
+import { RevocationManager } from '@sentinel-atl/revocation';
+import { AttestationManager, hashCode } from '@sentinel-atl/attestation';
+import { StepUpManager } from '@sentinel-atl/stepup';
+import { OfflineManager } from '@sentinel-atl/offline';
+import { SafetyPipeline, RegexClassifier, KeywordClassifier } from '@sentinel-atl/safety';
 import {
   langchainToolWrapper,
   openaiAgentGuardrail,
   StubTrustVerifier,
   withTrust,
-} from '@sentinel/adapters';
+} from '@sentinel-atl/adapters';
 import { join } from 'node:path';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

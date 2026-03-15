@@ -1,5 +1,5 @@
 /**
- * @sentinel/gateway tests
+ * @sentinel-atl/gateway tests
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -12,8 +12,8 @@ import {
   sign,
   textToBytes,
   toBase64Url,
-} from '@sentinel/core';
-import { ReputationEngine } from '@sentinel/reputation';
+} from '@sentinel-atl/core';
+import { ReputationEngine } from '@sentinel-atl/reputation';
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 

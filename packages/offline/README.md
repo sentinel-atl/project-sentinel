@@ -1,4 +1,4 @@
-# @sentinel/offline
+# @sentinel-atl/offline
 
 Offline and degraded mode for the Agent Trust Layer — cached trust decisions, configurable policies, CRDT-style reputation merge.
 
@@ -13,13 +13,13 @@ Offline and degraded mode for the Agent Trust Layer — cached trust decisions, 
 ## Install
 
 ```bash
-npm install @sentinel/offline
+npm install @sentinel-atl/offline
 ```
 
 ## Quick Start
 
 ```ts
-import { OfflineManager } from '@sentinel/offline';
+import { OfflineManager } from '@sentinel-atl/offline';
 
 const mgr = new OfflineManager({
   policy: { staleTrust: 'warn', missingData: 'deny', degradedReputation: 'allow' },

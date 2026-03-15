@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/attestation",
+  "name": "@sentinel-atl/attestation",
   "version": "0.1.0",
   "description": "Code attestation — cryptographic proof that an agent is running verified code",
   "type": "module",
@@ -18,8 +18,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/core": "*",
-    "@sentinel/audit": "*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/audit": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

@@ -3,7 +3,7 @@ import { AttestationManager, hashCode, hashDirectory } from '../index.js';
 import {
   InMemoryKeyProvider,
   publicKeyToDid,
-} from '@sentinel/core';
+} from '@sentinel-atl/core';
 import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,7 +15,7 @@ async function makeIdentity(keyProvider: InMemoryKeyProvider, name: string) {
   return { keyId: name, did };
 }
 
-describe('@sentinel/attestation', () => {
+describe('@sentinel-atl/attestation', () => {
   let keyProvider: InMemoryKeyProvider;
   let manager: AttestationManager;
   let agent: { keyId: string; did: string };

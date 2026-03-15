@@ -1,4 +1,4 @@
-# @sentinel/server
+# @sentinel-atl/server
 
 **STP-compliant HTTP server** — exposes the full Sentinel Trust Protocol as a language-agnostic REST API.
 
@@ -7,13 +7,13 @@ Any language. Any framework. Just HTTP.
 ## Install
 
 ```bash
-npm install @sentinel/server
+npm install @sentinel-atl/server
 ```
 
 ## Quick Start
 
 ```typescript
-import { createSTPServer } from '@sentinel/server';
+import { createSTPServer } from '@sentinel-atl/server';
 
 const server = await createSTPServer({
   name: 'my-trust-server',
@@ -116,10 +116,10 @@ Authenticated endpoints require an `Authorization: STP <token>` header. Tokens a
 STP.<header-base64url>.<payload-base64url>.<signature-base64url>
 ```
 
-Use the `/v1/token` endpoint to issue tokens, or create them client-side using `@sentinel/core`:
+Use the `/v1/token` endpoint to issue tokens, or create them client-side using `@sentinel-atl/core`:
 
 ```typescript
-import { createSTPToken, InMemoryKeyProvider, createIdentity } from '@sentinel/core';
+import { createSTPToken, InMemoryKeyProvider, createIdentity } from '@sentinel-atl/core';
 
 const kp = new InMemoryKeyProvider();
 const id = await createIdentity(kp, 'my-agent');

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StepUpManager, type StepUpChallenge } from '../index.js';
-import { InMemoryKeyProvider, publicKeyToDid } from '@sentinel/core';
+import { InMemoryKeyProvider, publicKeyToDid } from '@sentinel-atl/core';
 
 async function makeIdentity(kp: InMemoryKeyProvider, name: string) {
   await kp.generate(name);
@@ -8,7 +8,7 @@ async function makeIdentity(kp: InMemoryKeyProvider, name: string) {
   return { keyId: name, did: publicKeyToDid(pubKey) };
 }
 
-describe('@sentinel/stepup', () => {
+describe('@sentinel-atl/stepup', () => {
   let manager: StepUpManager;
   let principalKP: InMemoryKeyProvider;
   let principal: { keyId: string; did: string };

@@ -43,7 +43,7 @@ Sentinel fills the gap.
 
 ```bash
 # Install
-npm install @sentinel/cli -g
+npm install @sentinel-atl/cli -g
 
 # Create your agent identity
 sentinel init
@@ -122,22 +122,22 @@ sentinel audit verify
 
 | Package | Description |
 |---|---|
-| [`@sentinel/core`](packages/core) | DID identity, Verifiable Credentials, Proof of Intent, Agent Passport, crypto primitives |
-| [`@sentinel/handshake`](packages/handshake) | Zero-trust mutual verification with rate limiting, circuit breaker, clock tolerance |
-| [`@sentinel/reputation`](packages/reputation) | Weighted scoring, negative vouches, Sybil resistance, quarantine |
-| [`@sentinel/audit`](packages/audit) | Append-only hash-chain audit logging |
-| [`@sentinel/recovery`](packages/recovery) | Shamir's Secret Sharing key backup (3-of-5 default) |
-| [`@sentinel/revocation`](packages/revocation) | VC/DID revocation lists, key rotation, emergency kill switch |
-| [`@sentinel/attestation`](packages/attestation) | Code attestation — cryptographic proof an agent runs verified code |
-| [`@sentinel/stepup`](packages/stepup) | Step-up authentication — human re-approval for sensitive actions |
-| [`@sentinel/offline`](packages/offline) | Offline/degraded mode — LRU trust cache, CRDT reputation merge, pending tx queue |
-| [`@sentinel/safety`](packages/safety) | Content safety pipeline — prompt injection, PII, jailbreak detection with pluggable classifiers |
-| [`@sentinel/adapters`](packages/adapters) | Framework adapters for LangChain, CrewAI, AutoGen, OpenAI Agents SDK |
-| [`@sentinel/mcp-plugin`](packages/mcp-plugin) | MCP middleware — identity-aware tool call gating (revocation + attestation + safety) |
-| [`@sentinel/sdk`](packages/sdk) | Developer SDK — 5-line integration with offline mode, safety, revocation, kill switch |
-| [`@sentinel/cli`](packages/cli) | `sentinel` command-line tool |
-| [`@sentinel/hsm`](packages/hsm) | HSM KeyProvider backends — encrypted file, AWS CloudHSM, Azure Managed HSM, PKCS#11 |
-| [`@sentinel/dashboard`](packages/dashboard) | Web dashboard — trust graph, reputation scores, audit trail, revocation stats |
+| [`@sentinel-atl/core`](packages/core) | DID identity, Verifiable Credentials, Proof of Intent, Agent Passport, crypto primitives |
+| [`@sentinel-atl/handshake`](packages/handshake) | Zero-trust mutual verification with rate limiting, circuit breaker, clock tolerance |
+| [`@sentinel-atl/reputation`](packages/reputation) | Weighted scoring, negative vouches, Sybil resistance, quarantine |
+| [`@sentinel-atl/audit`](packages/audit) | Append-only hash-chain audit logging |
+| [`@sentinel-atl/recovery`](packages/recovery) | Shamir's Secret Sharing key backup (3-of-5 default) |
+| [`@sentinel-atl/revocation`](packages/revocation) | VC/DID revocation lists, key rotation, emergency kill switch |
+| [`@sentinel-atl/attestation`](packages/attestation) | Code attestation — cryptographic proof an agent runs verified code |
+| [`@sentinel-atl/stepup`](packages/stepup) | Step-up authentication — human re-approval for sensitive actions |
+| [`@sentinel-atl/offline`](packages/offline) | Offline/degraded mode — LRU trust cache, CRDT reputation merge, pending tx queue |
+| [`@sentinel-atl/safety`](packages/safety) | Content safety pipeline — prompt injection, PII, jailbreak detection with pluggable classifiers |
+| [`@sentinel-atl/adapters`](packages/adapters) | Framework adapters for LangChain, CrewAI, AutoGen, OpenAI Agents SDK |
+| [`@sentinel-atl/mcp-plugin`](packages/mcp-plugin) | MCP middleware — identity-aware tool call gating (revocation + attestation + safety) |
+| [`@sentinel-atl/sdk`](packages/sdk) | Developer SDK — 5-line integration with offline mode, safety, revocation, kill switch |
+| [`@sentinel-atl/cli`](packages/cli) | `sentinel` command-line tool |
+| [`@sentinel-atl/hsm`](packages/hsm) | HSM KeyProvider backends — encrypted file, AWS CloudHSM, Azure Managed HSM, PKCS#11 |
+| [`@sentinel-atl/dashboard`](packages/dashboard) | Web dashboard — trust graph, reputation scores, audit trail, revocation stats |
 
 ## Proof of Intent — Why This Matters
 
@@ -198,7 +198,7 @@ project-sentinel/
 ## SDK Quick Start
 
 ```ts
-import { createTrustedAgent } from '@sentinel/sdk';
+import { createTrustedAgent } from '@sentinel-atl/sdk';
 
 // Create a trusted agent in 5 lines
 const agent = await createTrustedAgent({
@@ -229,7 +229,7 @@ const safety = await agent.checkSafety('Ignore previous instructions...');
 Sentinel works with **any** AI agent framework:
 
 ```ts
-import { withTrust, StubTrustVerifier } from '@sentinel/adapters';
+import { withTrust, StubTrustVerifier } from '@sentinel-atl/adapters';
 
 // Universal wrapper — works with any async function
 const trustedBookFlight = withTrust(verifier, {

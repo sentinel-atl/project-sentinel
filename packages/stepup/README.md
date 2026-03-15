@@ -1,4 +1,4 @@
-# @sentinel/stepup
+# @sentinel-atl/stepup
 
 Step-up authentication — re-prompt humans for sensitive agent actions.
 
@@ -12,13 +12,13 @@ Step-up authentication — re-prompt humans for sensitive agent actions.
 ## Install
 
 ```bash
-npm install @sentinel/stepup
+npm install @sentinel-atl/stepup
 ```
 
 ## Quick Start
 
 ```ts
-import { StepUpManager } from '@sentinel/stepup';
+import { StepUpManager } from '@sentinel-atl/stepup';
 
 const mgr = new StepUpManager({
   auditLog,

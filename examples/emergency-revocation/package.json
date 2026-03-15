@@ -6,11 +6,11 @@
     "demo": "tsx demo.ts"
   },
   "dependencies": {
-    "@sentinel/core": "*",
-    "@sentinel/audit": "*",
-    "@sentinel/revocation": "*",
-    "@sentinel/mcp-plugin": "*",
-    "@sentinel/reputation": "*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/audit": "*",
+    "@sentinel-atl/revocation": "*",
+    "@sentinel-atl/mcp-plugin": "*",
+    "@sentinel-atl/reputation": "*"
   },
   "devDependencies": {
     "tsx": "^4.7.0"

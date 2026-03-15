@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/sdk",
+  "name": "@sentinel-atl/sdk",
   "version": "0.1.0",
   "description": "Developer-friendly SDK for the Agent Trust Layer — add trust to your agent in ~5 lines",
   "type": "module",
@@ -18,14 +18,14 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/core": "*",
-    "@sentinel/handshake": "*",
-    "@sentinel/reputation": "*",
-    "@sentinel/audit": "*",
-    "@sentinel/revocation": "*",
-    "@sentinel/attestation": "*",
-    "@sentinel/offline": "*",
-    "@sentinel/safety": "*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/handshake": "*",
+    "@sentinel-atl/reputation": "*",
+    "@sentinel-atl/audit": "*",
+    "@sentinel-atl/revocation": "*",
+    "@sentinel-atl/attestation": "*",
+    "@sentinel-atl/offline": "*",
+    "@sentinel-atl/safety": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

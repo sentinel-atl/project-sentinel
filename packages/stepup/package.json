@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/stepup",
+  "name": "@sentinel-atl/stepup",
   "version": "0.1.0",
   "description": "Step-up authentication — re-prompt humans for sensitive agent actions",
   "type": "module",
@@ -18,8 +18,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/core": "*",
-    "@sentinel/audit": "*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/audit": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

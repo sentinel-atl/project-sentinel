@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { splitSecret, reconstructSecret } from '../index.js';
-import { secureRandom, toHex } from '@sentinel/core';
+import { secureRandom, toHex } from '@sentinel-atl/core';
 
 describe('Shamir Secret Sharing', () => {
   describe('splitSecret / reconstructSecret', () => {

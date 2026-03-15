@@ -1,4 +1,4 @@
-# @sentinel/audit
+# @sentinel-atl/audit
 
 Append-only, hash-chain integrity audit logging for the Agent Trust Layer.
 
@@ -12,13 +12,13 @@ Append-only, hash-chain integrity audit logging for the Agent Trust Layer.
 ## Install
 
 ```bash
-npm install @sentinel/audit
+npm install @sentinel-atl/audit
 ```
 
 ## Quick Start
 
 ```ts
-import { AuditLog } from '@sentinel/audit';
+import { AuditLog } from '@sentinel-atl/audit';
 
 const log = new AuditLog({ logPath: './audit.jsonl' });
 

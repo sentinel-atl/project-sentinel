@@ -1,5 +1,5 @@
 /**
- * @sentinel/offline — Offline & Degraded Mode
+ * @sentinel-atl/offline — Offline & Degraded Mode
  *
  * The trust layer MUST NOT become a single point of failure. When external
  * services (reputation registry, revocation lists, gossip network) are
@@ -23,9 +23,9 @@
  * Blueprint ref: Section 7.2 (Offline & Degraded Mode), Section 7.3 (Caching Strategy)
  */
 
-import type { VerifiableCredential } from '@sentinel/core';
-import type { ReputationScore } from '@sentinel/reputation';
-import type { SignedRevocationList } from '@sentinel/revocation';
+import type { VerifiableCredential } from '@sentinel-atl/core';
+import type { ReputationScore } from '@sentinel-atl/reputation';
+import type { SignedRevocationList } from '@sentinel-atl/revocation';
 
 // ─── Cache Types ─────────────────────────────────────────────────────
 

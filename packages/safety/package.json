@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/safety",
+  "name": "@sentinel-atl/safety",
   "version": "0.1.0",
   "description": "Content safety hooks for the Agent Trust Layer — pre-dispatch and post-response inspection with pluggable classifiers",
   "type": "module",
@@ -18,7 +18,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/audit": "*"
+    "@sentinel-atl/audit": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

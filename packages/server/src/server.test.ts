@@ -1,5 +1,5 @@
 /**
- * @sentinel/server tests
+ * @sentinel-atl/server tests
  *
  * Tests the STP HTTP server against the protocol spec.
  */
@@ -12,7 +12,7 @@ import {
   createSTPToken,
   type KeyProvider,
   type AgentIdentity,
-} from '@sentinel/core';
+} from '@sentinel-atl/core';
 import http from 'node:http';
 
 // ─── HTTP Client Helper ──────────────────────────────────────────────

@@ -1,11 +1,11 @@
-# @sentinel/cli
+# @sentinel-atl/cli
 
 CLI tool for the Agent Trust Layer — identity, credentials, signing, and trust operations.
 
 ## Install
 
 ```bash
-npm install -g @sentinel/cli
+npm install -g @sentinel-atl/cli
 ```
 
 ## Commands

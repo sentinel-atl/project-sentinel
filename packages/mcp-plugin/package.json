@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/mcp-plugin",
+  "name": "@sentinel-atl/mcp-plugin",
   "version": "0.1.0",
   "description": "Sentinel middleware for MCP servers — identity verification at the tool-call boundary",
   "type": "module",
@@ -18,14 +18,14 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/core": "*",
-    "@sentinel/handshake": "*",
-    "@sentinel/reputation": "*",
-    "@sentinel/audit": "*",
-    "@sentinel/revocation": "*",
-    "@sentinel/attestation": "*",
-    "@sentinel/offline": "*",
-    "@sentinel/safety": "*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/handshake": "*",
+    "@sentinel-atl/reputation": "*",
+    "@sentinel-atl/audit": "*",
+    "@sentinel-atl/revocation": "*",
+    "@sentinel-atl/attestation": "*",
+    "@sentinel-atl/offline": "*",
+    "@sentinel-atl/safety": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

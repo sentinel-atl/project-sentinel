@@ -1,4 +1,4 @@
-# @sentinel/mcp-plugin
+# @sentinel-atl/mcp-plugin
 
 Sentinel middleware for MCP servers — identity verification at the tool-call boundary.
 
@@ -13,13 +13,13 @@ Sentinel middleware for MCP servers — identity verification at the tool-call b
 ## Install
 
 ```bash
-npm install @sentinel/mcp-plugin
+npm install @sentinel-atl/mcp-plugin
 ```
 
 ## Quick Start
 
 ```ts
-import { SentinelGuard } from '@sentinel/mcp-plugin';
+import { SentinelGuard } from '@sentinel-atl/mcp-plugin';
 
 const guard = new SentinelGuard({
   auditLog,

@@ -5,7 +5,7 @@ import {
   type DegradedAction,
 } from '../index.js';
 
-describe('@sentinel/offline', () => {
+describe('@sentinel-atl/offline', () => {
   let manager: OfflineManager;
 
   beforeEach(() => {

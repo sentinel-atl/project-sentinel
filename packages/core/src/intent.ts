@@ -1,5 +1,5 @@
 /**
- * @sentinel/core — Proof of Intent module
+ * @sentinel-atl/core — Proof of Intent module
  *
  * ⚡ THIS IS SENTINEL'S PRIMARY DIFFERENTIATOR ⚡
  *

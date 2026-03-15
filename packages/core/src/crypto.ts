@@ -1,5 +1,5 @@
 /**
- * @sentinel/core — Crypto primitives for the Agent Trust Layer
+ * @sentinel-atl/core — Crypto primitives for the Agent Trust Layer
  *
  * Ed25519 signing/verification and X25519 key agreement using @noble/ed25519.
  * This is the lowest-level building block — everything else depends on this.

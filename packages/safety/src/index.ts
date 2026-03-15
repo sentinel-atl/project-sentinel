@@ -1,5 +1,5 @@
 /**
- * @sentinel/safety — Content Safety Hooks
+ * @sentinel-atl/safety — Content Safety Hooks
  *
  * The trust layer verifies *identity and authorization*, not *content*.
  * However, agents that handle user-facing content need safety checks.
@@ -25,7 +25,7 @@
  * Blueprint ref: Section 6.3 (Content Safety Integration)
  */
 
-import { AuditLog } from '@sentinel/audit';
+import { AuditLog } from '@sentinel-atl/audit';
 
 // ─── Classification Types ────────────────────────────────────────────
 

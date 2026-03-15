@@ -1,5 +1,5 @@
 /**
- * @sentinel/core — STP Token (Sentinel Trust Protocol Token)
+ * @sentinel-atl/core — STP Token (Sentinel Trust Protocol Token)
  *
  * A compact, URL-safe token format for authenticating agent HTTP requests.
  * Structure: STP.<header-b64url>.<payload-b64url>.<signature-b64url>

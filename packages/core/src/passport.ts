@@ -1,5 +1,5 @@
 /**
- * @sentinel/core — Agent Passport
+ * @sentinel-atl/core — Agent Passport
  *
  * Machine-readable trust profile in JSON-LD.
  * This is what agents publish to declare: "Here's who I am, what I can do,

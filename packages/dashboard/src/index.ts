@@ -1,5 +1,5 @@
 /**
- * @sentinel/dashboard — Trust Visualization Dashboard
+ * @sentinel-atl/dashboard — Trust Visualization Dashboard
  *
  * A lightweight, zero-dependency web dashboard for visualizing:
  *
@@ -17,10 +17,10 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import type { ReputationScore } from '@sentinel/reputation';
-import type { AuditLog } from '@sentinel/audit';
-import type { RevocationManager } from '@sentinel/revocation';
-import type { OfflineManager } from '@sentinel/offline';
+import type { ReputationScore } from '@sentinel-atl/reputation';
+import type { AuditLog } from '@sentinel-atl/audit';
+import type { RevocationManager } from '@sentinel-atl/revocation';
+import type { OfflineManager } from '@sentinel-atl/offline';
 
 // ─── Data Sources ────────────────────────────────────────────────────
 

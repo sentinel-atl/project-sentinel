@@ -1,5 +1,5 @@
 /**
- * @sentinel/revocation — DID & VC Revocation, Key Rotation, Kill Switch
+ * @sentinel-atl/revocation — DID & VC Revocation, Key Rotation, Kill Switch
  *
  * When things go wrong — compromised keys, rogue agents, policy violations —
  * you need to revoke trust FAST. This module provides:
@@ -31,8 +31,8 @@ import {
   hash,
   didToPublicKey,
   type KeyProvider,
-} from '@sentinel/core';
-import { AuditLog } from '@sentinel/audit';
+} from '@sentinel-atl/core';
+import { AuditLog } from '@sentinel-atl/audit';
 
 // ─── VC Revocation List (VRL) ────────────────────────────────────────
 

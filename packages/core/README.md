@@ -1,4 +1,4 @@
-# @sentinel/core
+# @sentinel-atl/core
 
 DID identity, Verifiable Credentials, crypto primitives, and KeyProvider interface for the Agent Trust Layer.
 
@@ -14,13 +14,13 @@ DID identity, Verifiable Credentials, crypto primitives, and KeyProvider interfa
 ## Install
 
 ```bash
-npm install @sentinel/core
+npm install @sentinel-atl/core
 ```
 
 ## Quick Start
 
 ```ts
-import { InMemoryKeyProvider, createIdentity, issueVC, verifyVC } from '@sentinel/core';
+import { InMemoryKeyProvider, createIdentity, issueVC, verifyVC } from '@sentinel-atl/core';
 
 const kp = new InMemoryKeyProvider();
 const agent = await createIdentity(kp, 'my-agent');

@@ -16,15 +16,15 @@ import {
   sign,
   textToBytes,
   toBase64Url,
-} from '@sentinel/core';
+} from '@sentinel-atl/core';
 import {
   SentinelGuard,
   type MCPToolCallRequest,
-} from '@sentinel/mcp-plugin';
-import { AuditLog } from '@sentinel/audit';
-import { ReputationEngine } from '@sentinel/reputation';
-import { SafetyPipeline, RegexClassifier } from '@sentinel/safety';
-import { OfflineManager } from '@sentinel/offline';
+} from '@sentinel-atl/mcp-plugin';
+import { AuditLog } from '@sentinel-atl/audit';
+import { ReputationEngine } from '@sentinel-atl/reputation';
+import { SafetyPipeline, RegexClassifier } from '@sentinel-atl/safety';
+import { OfflineManager } from '@sentinel-atl/offline';
 import { join } from 'node:path';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

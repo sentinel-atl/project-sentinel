@@ -1,4 +1,4 @@
-# @sentinel/reputation
+# @sentinel-atl/reputation
 
 Weighted reputation scoring with negative vouches, Sybil resistance, and rate-limited vouching.
 
@@ -12,13 +12,13 @@ Weighted reputation scoring with negative vouches, Sybil resistance, and rate-li
 ## Install
 
 ```bash
-npm install @sentinel/reputation
+npm install @sentinel-atl/reputation
 ```
 
 ## Quick Start
 
 ```ts
-import { ReputationEngine } from '@sentinel/reputation';
+import { ReputationEngine } from '@sentinel-atl/reputation';
 
 const engine = new ReputationEngine();
 

@@ -1,5 +1,5 @@
 /**
- * @sentinel/reputation — Weighted Trust Scoring Engine
+ * @sentinel-atl/reputation — Weighted Trust Scoring Engine
  *
  * Unlike simple "thumbs up" systems, Sentinel reputation is:
  * - Weighted: vouches from high-reputation agents count more
@@ -11,7 +11,7 @@
  * Score range: 0–100. New agents start at 50 (neutral).
  */
 
-import type { NegativeReason } from '@sentinel/core';
+import type { NegativeReason } from '@sentinel-atl/core';
 
 export interface Vouch {
   /** DID of the agent issuing the vouch */

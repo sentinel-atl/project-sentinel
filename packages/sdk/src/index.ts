@@ -1,5 +1,5 @@
 /**
- * @sentinel/sdk — The developer-facing SDK
+ * @sentinel-atl/sdk — The developer-facing SDK
  *
  * Add trust to your AI agent in ~5 lines of code:
  *
@@ -9,8 +9,8 @@
  *   const intent = await agent.createIntent('book_flight', scopes);
  *   await agent.vouch(peerDid, 'positive', 0.8);
  *
- * This wraps @sentinel/core, @sentinel/handshake, @sentinel/reputation,
- * and @sentinel/audit into a single cohesive API.
+ * This wraps @sentinel-atl/core, @sentinel-atl/handshake, @sentinel-atl/reputation,
+ * and @sentinel-atl/audit into a single cohesive API.
  */
 
 import {
@@ -29,7 +29,7 @@ import {
   type IntentEnvelope,
   type CredentialType,
   type SensitivityLevel,
-} from '@sentinel/core';
+} from '@sentinel-atl/core';
 import {
   createHandshakeInit,
   processInitAndRespond,
@@ -40,20 +40,20 @@ import {
   HandshakeCircuitBreaker,
   type HandshakeConfig,
   type SessionEstablished,
-} from '@sentinel/handshake';
-import { ReputationEngine, type ReputationScore } from '@sentinel/reputation';
-import { AuditLog } from '@sentinel/audit';
+} from '@sentinel-atl/handshake';
+import { ReputationEngine, type ReputationScore } from '@sentinel-atl/reputation';
+import { AuditLog } from '@sentinel-atl/audit';
 import {
   RevocationManager,
   type RevocationReason,
   type KillSwitchEvent,
-} from '@sentinel/revocation';
+} from '@sentinel-atl/revocation';
 import {
   AttestationManager,
   hashCode,
   hashDirectory,
   type CodeAttestation,
-} from '@sentinel/attestation';
+} from '@sentinel-atl/attestation';
 import {
   OfflineManager,
   type OfflinePolicy,
@@ -61,13 +61,13 @@ import {
   type PendingOperation,
   type VouchCRDT,
   type MergeResult,
-} from '@sentinel/offline';
+} from '@sentinel-atl/offline';
 import {
   SafetyPipeline,
   RegexClassifier,
   type SafetyCheckResult,
   type ContentClassifier,
-} from '@sentinel/safety';
+} from '@sentinel-atl/safety';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { mkdirSync, existsSync } from 'node:fs';
@@ -524,7 +524,7 @@ class TrustedAgentImpl implements TrustedAgent {
  *
  * @example
  * ```ts
- * import { createTrustedAgent } from '@sentinel/sdk';
+ * import { createTrustedAgent } from '@sentinel-atl/sdk';
  *
  * const agent = await createTrustedAgent({
  *   name: 'my-travel-bot',

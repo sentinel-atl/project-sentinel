@@ -409,7 +409,7 @@ Trust cannot be a proprietary product. For an A2A economy to flourish, the ident
 | Milestone | Deliverable |
 |---|---|
 | **3a. MCP Plugin** | Sentinel middleware for MCP servers — identity check at tool-call boundary with full Sentinel pipeline. |
-| **3b. SDK** | `@sentinel/sdk` npm package for agent developers to add trust in ~5 lines of code. Includes content safety hooks. |
+| **3b. SDK** | `@sentinel-atl/sdk` npm package for agent developers to add trust in ~5 lines of code. Includes content safety hooks. |
 | **3c. Dashboard** | Web UI to visualize trust graphs, reputation scores, delegation chains, and audit logs. |
 | **3d. Multi-Framework** | Adapters for LangChain, CrewAI, AutoGen, and OpenAI Agents SDK. |
 | **3e. HSM Backends** | `KeyProvider` implementations for Secure Enclave, AWS CloudHSM, Azure Managed HSM, PKCS#11. |

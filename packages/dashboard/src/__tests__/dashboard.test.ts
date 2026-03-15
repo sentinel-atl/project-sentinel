@@ -7,7 +7,7 @@ import {
   type TrustGraphEdge,
 } from '../index.js';
 
-describe('@sentinel/dashboard', () => {
+describe('@sentinel-atl/dashboard', () => {
   let server: DashboardServer | null = null;
 
   afterEach(async () => {

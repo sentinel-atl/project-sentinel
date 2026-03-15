@@ -1,5 +1,5 @@
 /**
- * @sentinel/server — STP-Compliant HTTP Server
+ * @sentinel-atl/server — STP-Compliant HTTP Server
  *
  * Exposes the full Sentinel Trust Protocol as a language-agnostic REST API.
  * Any language or framework can authenticate agents, verify credentials,
@@ -33,11 +33,11 @@ import {
   type CredentialType,
   type SensitivityLevel,
   type IntentEnvelope,
-} from '@sentinel/core';
-import { AuditLog } from '@sentinel/audit';
-import { ReputationEngine, type ReputationScore } from '@sentinel/reputation';
-import { RevocationManager, type RevocationReason } from '@sentinel/revocation';
-import { SafetyPipeline, RegexClassifier, type ContentClassifier } from '@sentinel/safety';
+} from '@sentinel-atl/core';
+import { AuditLog } from '@sentinel-atl/audit';
+import { ReputationEngine, type ReputationScore } from '@sentinel-atl/reputation';
+import { RevocationManager, type RevocationReason } from '@sentinel-atl/revocation';
+import { SafetyPipeline, RegexClassifier, type ContentClassifier } from '@sentinel-atl/safety';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -538,7 +538,7 @@ class STPServerImpl implements STPServer {
           polarity,
           weight: Math.min(1, Math.max(0, weight)),
           voucherVerified: true,
-          reason: reason as import('@sentinel/core').NegativeReason | undefined,
+          reason: reason as import('@sentinel-atl/core').NegativeReason | undefined,
           timestamp: new Date().toISOString(),
         });
 
@@ -799,6 +799,6 @@ export type {
   IntentEnvelope,
   CredentialType,
   SensitivityLevel,
-} from '@sentinel/core';
-export type { ReputationScore } from '@sentinel/reputation';
-export type { RevocationReason } from '@sentinel/revocation';
+} from '@sentinel-atl/core';
+export type { ReputationScore } from '@sentinel-atl/reputation';
+export type { RevocationReason } from '@sentinel-atl/revocation';

@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/conformance",
+  "name": "@sentinel-atl/conformance",
   "version": "0.1.0",
   "description": "STP Conformance Test Suite — verify any implementation against the Sentinel Trust Protocol spec",
   "license": "Apache-2.0",
@@ -18,8 +18,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/core": "*",
-    "@sentinel/server": "*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/server": "*"
   },
   "keywords": [
     "sentinel",

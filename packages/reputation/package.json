@@ -1,5 +1,5 @@
 {
-  "name": "@sentinel/reputation",
+  "name": "@sentinel-atl/reputation",
   "version": "0.1.0",
   "description": "Weighted reputation scoring with negative vouches, Sybil resistance, and rate-limited vouching",
   "type": "module",
@@ -18,7 +18,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel/core": "*"
+    "@sentinel-atl/core": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

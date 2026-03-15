@@ -16,10 +16,10 @@ import {
   InMemoryKeyProvider,
   createIdentity,
   issueVC,
-} from '@sentinel/core';
-import { AuditLog } from '@sentinel/audit';
-import { RevocationManager } from '@sentinel/revocation';
-import { SentinelGuard } from '@sentinel/mcp-plugin';
+} from '@sentinel-atl/core';
+import { AuditLog } from '@sentinel-atl/audit';
+import { RevocationManager } from '@sentinel-atl/revocation';
+import { SentinelGuard } from '@sentinel-atl/mcp-plugin';
 import { join } from 'node:path';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

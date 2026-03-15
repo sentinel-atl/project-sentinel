@@ -1,5 +1,5 @@
 /**
- * @sentinel/hsm — HSM and secure KeyProvider backends.
+ * @sentinel-atl/hsm — HSM and secure KeyProvider backends.
  *
  * Provides production-grade KeyProvider implementations:
  * - EncryptedFileKeyProvider  — AES-256-GCM encrypted file storage (Node crypto)
@@ -11,12 +11,12 @@
  * HSM stubs provide the correct interface and throw clear "configure SDK" errors.
  */
 
-import type { KeyProvider } from '@sentinel/core';
+import type { KeyProvider } from '@sentinel-atl/core';
 import { createHash, createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
-// ─── KeyPair type (matches @sentinel/core) ───────────────────────
+// ─── KeyPair type (matches @sentinel-atl/core) ───────────────────────
 
 interface KeyPair {
   publicKey: Uint8Array;

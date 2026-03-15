@@ -1,5 +1,5 @@
 /**
- * @sentinel/core — DID (Decentralized Identifier) module
+ * @sentinel-atl/core — DID (Decentralized Identifier) module
  *
  * Implements did:key method using Ed25519 public keys.
  * Format: did:key:z6Mk<base58btc-encoded-multicodec-key>

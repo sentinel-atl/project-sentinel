@@ -1,5 +1,5 @@
 /**
- * @sentinel/attestation — Code Attestation for AI Agents
+ * @sentinel-atl/attestation — Code Attestation for AI Agents
  *
  * "Trust, but verify the code."
  *
@@ -28,8 +28,8 @@ import {
   verify,
   didToPublicKey,
   type KeyProvider,
-} from '@sentinel/core';
-import { AuditLog } from '@sentinel/audit';
+} from '@sentinel-atl/core';
+import { AuditLog } from '@sentinel-atl/audit';
 import { createHash } from 'node:crypto';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';

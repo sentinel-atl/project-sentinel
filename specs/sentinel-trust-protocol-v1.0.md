@@ -922,7 +922,7 @@ All error responses MUST follow this format:
 
 ### 14.2 Interoperability Test Suite
 
-Implementations SHOULD pass the STP Conformance Test Suite (published as `@sentinel/conformance`). The test suite verifies:
+Implementations SHOULD pass the STP Conformance Test Suite (published as `@sentinel-atl/conformance`). The test suite verifies:
 
 1. **Discovery**: `/.well-known/sentinel-configuration` returns valid JSON
 2. **Identity**: Can resolve any `did:key` DID to a DIDDocument

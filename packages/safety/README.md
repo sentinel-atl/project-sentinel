@@ -1,4 +1,4 @@
-# @sentinel/safety
+# @sentinel-atl/safety
 
 Content safety hooks for the Agent Trust Layer — pre-dispatch and post-response inspection with pluggable classifiers.
 
@@ -13,13 +13,13 @@ Content safety hooks for the Agent Trust Layer — pre-dispatch and post-respons
 ## Install
 
 ```bash
-npm install @sentinel/safety
+npm install @sentinel-atl/safety
 ```
 
 ## Quick Start
 
 ```ts
-import { SafetyPipeline, RegexClassifier, KeywordClassifier } from '@sentinel/safety';
+import { SafetyPipeline, RegexClassifier, KeywordClassifier } from '@sentinel-atl/safety';
 
 const pipeline = new SafetyPipeline({
   classifiers: [

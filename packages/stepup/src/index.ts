@@ -1,5 +1,5 @@
 /**
- * @sentinel/stepup — Step-Up Authentication for Sensitive Actions
+ * @sentinel-atl/stepup — Step-Up Authentication for Sensitive Actions
  *
  * When an agent is about to do something high-sensitivity — authorize a
  * large payment, delete data, modify permissions — the trust pipeline
@@ -30,8 +30,8 @@ import {
   didToPublicKey,
   type KeyProvider,
   type SensitivityLevel,
-} from '@sentinel/core';
-import { AuditLog } from '@sentinel/audit';
+} from '@sentinel-atl/core';
+import { AuditLog } from '@sentinel-atl/audit';
 
 // ─── Types ───────────────────────────────────────────────────────────
 

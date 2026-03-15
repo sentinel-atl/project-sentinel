@@ -1,5 +1,5 @@
 /**
- * @sentinel/mcp-plugin — MCP Identity Middleware
+ * @sentinel-atl/mcp-plugin — MCP Identity Middleware
  *
  * Sentinel for MCP servers. Adds identity verification, credential checks,
  * intent validation, and audit logging at the tool-call boundary.
@@ -28,13 +28,13 @@ import {
   type VerifiableCredential,
   type IntentEnvelope,
   type KeyProvider,
-} from '@sentinel/core';
-import { AuditLog, type AuditEventType } from '@sentinel/audit';
-import { ReputationEngine, type ReputationScore } from '@sentinel/reputation';
-import { RevocationManager } from '@sentinel/revocation';
-import { AttestationManager } from '@sentinel/attestation';
-import { OfflineManager, type DegradedDecision } from '@sentinel/offline';
-import { SafetyPipeline, type SafetyCheckResult } from '@sentinel/safety';
+} from '@sentinel-atl/core';
+import { AuditLog, type AuditEventType } from '@sentinel-atl/audit';
+import { ReputationEngine, type ReputationScore } from '@sentinel-atl/reputation';
+import { RevocationManager } from '@sentinel-atl/revocation';
+import { AttestationManager } from '@sentinel-atl/attestation';
+import { OfflineManager, type DegradedDecision } from '@sentinel-atl/offline';
+import { SafetyPipeline, type SafetyCheckResult } from '@sentinel-atl/safety';
 
 // ─── Types ───────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-# @sentinel/gateway
+# @sentinel-atl/gateway
 
 **MCP Security Gateway** — a drop-in proxy that adds identity, credentials, reputation, content safety, and audit to any MCP server.
 
@@ -9,13 +9,13 @@ Client → [Gateway: identity + credentials + reputation + safety + audit] → S
 ## Install
 
 ```bash
-npm install @sentinel/gateway
+npm install @sentinel-atl/gateway
 ```
 
 ## Quick Start
 
 ```typescript
-import { createGateway } from '@sentinel/gateway';
+import { createGateway } from '@sentinel-atl/gateway';
 
 const gw = await createGateway({
   name: 'my-gateway',

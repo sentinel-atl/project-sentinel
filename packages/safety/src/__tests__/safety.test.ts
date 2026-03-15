@@ -7,7 +7,7 @@ import {
   type ClassificationResult,
 } from '../index.js';
 
-describe('@sentinel/safety', () => {
+describe('@sentinel-atl/safety', () => {
   // ─── RegexClassifier ───────────────────────────────────────────
 
   describe('RegexClassifier', () => {

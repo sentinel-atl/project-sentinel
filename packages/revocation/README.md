@@ -1,4 +1,4 @@
-# @sentinel/revocation
+# @sentinel-atl/revocation
 
 DID and VC revocation, key rotation, and emergency kill switch for the Agent Trust Layer.
 
@@ -13,14 +13,14 @@ DID and VC revocation, key rotation, and emergency kill switch for the Agent Tru
 ## Install
 
 ```bash
-npm install @sentinel/revocation
+npm install @sentinel-atl/revocation
 ```
 
 ## Quick Start
 
 ```ts
-import { RevocationManager } from '@sentinel/revocation';
-import { AuditLog } from '@sentinel/audit';
+import { RevocationManager } from '@sentinel-atl/revocation';
+import { AuditLog } from '@sentinel-atl/audit';
 
 const auditLog = new AuditLog({ logPath: './audit.jsonl' });
 const revMgr = new RevocationManager(auditLog);

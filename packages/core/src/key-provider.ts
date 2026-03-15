@@ -1,5 +1,5 @@
 /**
- * @sentinel/core — KeyProvider interface
+ * @sentinel-atl/core — KeyProvider interface
  *
  * Abstracts key storage so backends are swappable:
  * - OS keychain (v0 default)

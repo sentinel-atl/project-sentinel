@@ -45,9 +45,9 @@ import {
   createPassport,
   type CredentialType,
   type SensitivityLevel,
-} from '@sentinel/core';
-import { AuditLog } from '@sentinel/audit';
-import { splitSecret, reconstructSecret, type Share } from '@sentinel/recovery';
+} from '@sentinel-atl/core';
+import { AuditLog } from '@sentinel-atl/audit';
+import { splitSecret, reconstructSecret, type Share } from '@sentinel-atl/recovery';
 
 // ─── State Management ────────────────────────────────────────────────
 

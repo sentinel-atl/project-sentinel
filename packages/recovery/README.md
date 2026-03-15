@@ -1,4 +1,4 @@
-# @sentinel/recovery
+# @sentinel-atl/recovery
 
 Key backup and recovery via Shamir's Secret Sharing (3-of-5 threshold).
 
@@ -11,13 +11,13 @@ Key backup and recovery via Shamir's Secret Sharing (3-of-5 threshold).
 ## Install
 
 ```bash
-npm install @sentinel/recovery
+npm install @sentinel-atl/recovery
 ```
 
 ## Quick Start
 
 ```ts
-import { splitSecret, reconstructSecret } from '@sentinel/recovery';
+import { splitSecret, reconstructSecret } from '@sentinel-atl/recovery';
 
 const secret = new Uint8Array([1, 2, 3, 4, 5]);
 

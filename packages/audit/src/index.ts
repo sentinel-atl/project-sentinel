@@ -1,5 +1,5 @@
 /**
- * @sentinel/audit — Tamper-evident audit logging
+ * @sentinel-atl/audit — Tamper-evident audit logging
  *
  * Every Sentinel event gets logged in a structured, append-only trail
  * with hash-chain integrity. Each entry includes the SHA-256 hash of the
@@ -8,7 +8,7 @@
  * This is how you answer "what happened?" after an incident.
  */
 
-import { hash, toHex, textToBytes } from '@sentinel/core';
+import { hash, toHex, textToBytes } from '@sentinel-atl/core';
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';

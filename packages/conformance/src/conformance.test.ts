@@ -1,5 +1,5 @@
 /**
- * @sentinel/conformance — STP Conformance Test Suite
+ * @sentinel-atl/conformance — STP Conformance Test Suite
  *
  * Tests that verify any STP-compliant server against the
  * Sentinel Trust Protocol v1.0 specification.
@@ -7,7 +7,7 @@
  * Run against a live server:
  *   STP_SERVER_URL=http://localhost:3100 npx vitest run packages/conformance
  *
- * Or run against the reference @sentinel/server:
+ * Or run against the reference @sentinel-atl/server:
  *   npx vitest run packages/conformance
  */
 
@@ -20,8 +20,8 @@ import {
   decodeSTPToken,
   type KeyProvider,
   type AgentIdentity,
-} from '@sentinel/core';
-import { createSTPServer, type STPServer } from '@sentinel/server';
+} from '@sentinel-atl/core';
+import { createSTPServer, type STPServer } from '@sentinel-atl/server';
 
 // ─── HTTP Client ─────────────────────────────────────────────────────
 

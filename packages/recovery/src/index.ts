@@ -1,5 +1,5 @@
 /**
- * @sentinel/recovery — Key Backup & Recovery via Shamir's Secret Sharing
+ * @sentinel-atl/recovery — Key Backup & Recovery via Shamir's Secret Sharing
  *
  * When an agent's key is lost, the identity is gone — all VCs become
  * unverifiable. This module implements Shamir's Secret Sharing to split
@@ -9,7 +9,7 @@
  * Shares are meant to be distributed to trusted parties.
  */
 
-import { secureRandom, toHex, fromHex, toBase64Url, fromBase64Url } from '@sentinel/core';
+import { secureRandom, toHex, fromHex, toBase64Url, fromBase64Url } from '@sentinel-atl/core';
 import { randomBytes } from 'node:crypto';
 
 /**

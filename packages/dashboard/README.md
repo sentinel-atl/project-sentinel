@@ -1,4 +1,4 @@
-# @sentinel/dashboard
+# @sentinel-atl/dashboard
 
 Web dashboard for visualizing trust graphs, reputation scores, delegation chains, and audit logs.
 
@@ -14,13 +14,13 @@ Web dashboard for visualizing trust graphs, reputation scores, delegation chains
 ## Install
 
 ```bash
-npm install @sentinel/dashboard
+npm install @sentinel-atl/dashboard
 ```
 
 ## Quick Start
 
 ```ts
-import { createDashboard, buildDashboardData } from '@sentinel/dashboard';
+import { createDashboard, buildDashboardData } from '@sentinel-atl/dashboard';
 
 const server = await createDashboard({
   port: 3000,

@@ -1,4 +1,4 @@
-# @sentinel/handshake
+# @sentinel-atl/handshake
 
 Zero-trust handshake protocol with versioning, channel binding, and rate limiting.
 
@@ -12,7 +12,7 @@ Zero-trust handshake protocol with versioning, channel binding, and rate limitin
 ## Install
 
 ```bash
-npm install @sentinel/handshake
+npm install @sentinel-atl/handshake
 ```
 
 ## Quick Start
@@ -24,7 +24,7 @@ import {
   createVCExchange,
   verifyVCExchange,
   createSessionEstablished,
-} from '@sentinel/handshake';
+} from '@sentinel-atl/handshake';
 
 // Step 1: Initiator sends init
 const init = createHandshakeInit({
