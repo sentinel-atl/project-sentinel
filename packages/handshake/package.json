@@ -29,7 +29,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/meetpandya27/project-sentinel.git",
+    "url": "https://github.com/sentinel-atl/project-sentinel.git",
     "directory": "packages/handshake"
   },
   "keywords": [
@@ -41,9 +41,9 @@
     "mcp",
     "security"
   ],
-  "homepage": "https://github.com/meetpandya27/project-sentinel#readme",
+  "homepage": "https://github.com/sentinel-atl/project-sentinel#readme",
   "bugs": {
-    "url": "https://github.com/meetpandya27/project-sentinel/issues"
+    "url": "https://github.com/sentinel-atl/project-sentinel/issues"
   },
   "files": [
     "dist",
