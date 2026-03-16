@@ -30,8 +30,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/nickthetj/project-sentinel",
+    "url": "https://github.com/meetpandya27/project-sentinel",
     "directory": "packages/conformance"
   },
-  "homepage": "https://github.com/nickthetj/project-sentinel/blob/main/specs/sentinel-trust-protocol-v1.0.md"
+  "homepage": "https://github.com/meetpandya27/project-sentinel/blob/main/specs/sentinel-trust-protocol-v1.0.md"
 }

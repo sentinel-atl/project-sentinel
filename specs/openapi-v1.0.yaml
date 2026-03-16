@@ -10,7 +10,7 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0
   contact:
     name: Project Sentinel
-    url: https://github.com/nickthetj/project-sentinel
+    url: https://github.com/meetpandya27/project-sentinel
 
 servers:
   - url: http://localhost:3100

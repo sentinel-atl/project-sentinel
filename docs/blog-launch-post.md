@@ -147,7 +147,7 @@ Trust infrastructure must be open. You can't ask developers to bet their agent s
 npm install @sentinel-atl/sdk
 ```
 
-GitHub: [github.com/nickthetj/project-sentinel](https://github.com/nickthetj/project-sentinel)
+GitHub: [github.com/meetpandya27/project-sentinel](https://github.com/meetpandya27/project-sentinel)
 
 ---
 

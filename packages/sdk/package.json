@@ -35,7 +35,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nickthetj/project-sentinel.git",
+    "url": "https://github.com/meetpandya27/project-sentinel.git",
     "directory": "packages/sdk"
   },
   "keywords": [
@@ -47,9 +47,9 @@
     "mcp",
     "security"
   ],
-  "homepage": "https://github.com/nickthetj/project-sentinel#readme",
+  "homepage": "https://github.com/meetpandya27/project-sentinel#readme",
   "bugs": {
-    "url": "https://github.com/nickthetj/project-sentinel/issues"
+    "url": "https://github.com/meetpandya27/project-sentinel/issues"
   },
   "files": [
     "dist",
