@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/attestation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Code attestation — cryptographic proof that an agent is running verified code",
   "type": "module",
   "main": "dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/offline",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Offline and degraded mode for the Agent Trust Layer — cached trust decisions, configurable policies, CRDT-style reputation merge",
   "type": "module",
   "main": "dist/index.js",

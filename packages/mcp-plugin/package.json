@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/mcp-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Sentinel middleware for MCP servers — identity verification at the tool-call boundary",
   "type": "module",
   "main": "dist/index.js",

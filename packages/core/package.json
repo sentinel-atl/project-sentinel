@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DID identity, Verifiable Credentials, crypto primitives, and KeyProvider interface for the Agent Trust Layer",
   "type": "module",
   "main": "dist/index.js",

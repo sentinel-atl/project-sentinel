@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/stepup",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Step-up authentication — re-prompt humans for sensitive agent actions",
   "type": "module",
   "main": "dist/index.js",

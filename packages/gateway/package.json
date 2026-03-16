@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/gateway",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP Security Gateway — drop-in proxy adding identity, reputation, safety, and audit to any MCP server",
   "type": "module",
   "main": "dist/index.js",
