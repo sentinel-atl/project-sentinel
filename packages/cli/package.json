@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/cli",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "CLI tool for the Agent Trust Layer — identity, credentials, signing, and trust operations",
   "type": "module",
   "main": "dist/index.js",

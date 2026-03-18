@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/sdk",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Developer-friendly SDK for the Agent Trust Layer — add trust to your agent in ~5 lines",
   "type": "module",
   "main": "dist/index.js",

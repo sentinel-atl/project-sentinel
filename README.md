@@ -8,6 +8,7 @@ Give your AI agents cryptographic identity, verifiable credentials, and zero-tru
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)](https://www.typescriptlang.org/)
 [![Tests](https://img.shields.io/badge/Tests-360%20passing-brightgreen.svg)]()
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg)](python/)
 [![Protocol](https://img.shields.io/badge/Protocol-STP%20v1.0-green.svg)](specs/sentinel-trust-protocol-v1.0.md)
 
 ```bash
@@ -152,11 +153,16 @@ Every arrow is cryptographically signed. Every step is audit-logged. Scope can o
 | [`@sentinel-atl/handshake`](https://www.npmjs.com/package/@sentinel-atl/handshake) | Zero-trust mutual agent verification |
 | [`@sentinel-atl/gateway`](https://www.npmjs.com/package/@sentinel-atl/gateway) | MCP Security Gateway |
 | [`@sentinel-atl/mcp-plugin`](https://www.npmjs.com/package/@sentinel-atl/mcp-plugin) | MCP middleware for tool-call gating |
+| [`@sentinel-atl/mcp-proxy`](https://www.npmjs.com/package/@sentinel-atl/mcp-proxy) | **NEW** Real MCP transport proxy (stdio/SSE) with CLI |
 | [`@sentinel-atl/reputation`](https://www.npmjs.com/package/@sentinel-atl/reputation) | Trust scoring, Sybil resistance, quarantine |
-| [`@sentinel-atl/safety`](https://www.npmjs.com/package/@sentinel-atl/safety) | Content safety — prompt injection, PII, jailbreak detection |
-| [`@sentinel-atl/audit`](https://www.npmjs.com/package/@sentinel-atl/audit) | Tamper-evident hash-chain audit log |
+| [`@sentinel-atl/safety`](https://www.npmjs.com/package/@sentinel-atl/safety) | Content safety — prompt injection, PII, jailbreak + Azure/OpenAI/LlamaGuard |
+| [`@sentinel-atl/audit`](https://www.npmjs.com/package/@sentinel-atl/audit) | Tamper-evident hash-chain audit log (standalone API available) |
 | [`@sentinel-atl/revocation`](https://www.npmjs.com/package/@sentinel-atl/revocation) | Credential revocation + emergency kill switch |
-| [`@sentinel-atl/adapters`](https://www.npmjs.com/package/@sentinel-atl/adapters) | LangChain, CrewAI, AutoGen, OpenAI adapters |
+| [`@sentinel-atl/store`](https://www.npmjs.com/package/@sentinel-atl/store) | **NEW** Persistent storage (Redis, PostgreSQL, SQLite) |
+| [`@sentinel-atl/telemetry`](https://www.npmjs.com/package/@sentinel-atl/telemetry) | **NEW** OpenTelemetry traces, metrics, spans |
+| [`@sentinel-atl/budget`](https://www.npmjs.com/package/@sentinel-atl/budget) | **NEW** Token/cost control, circuit breakers, usage attribution |
+| [`@sentinel-atl/approval`](https://www.npmjs.com/package/@sentinel-atl/approval) | **NEW** Human approval workflows (Webhook, Slack, Web UI) |
+| [`@sentinel-atl/adapters`](https://www.npmjs.com/package/@sentinel-atl/adapters) | Vercel AI SDK, LangChain.js, MCP SDK, CrewAI, AutoGen adapters |
 | [`@sentinel-atl/server`](https://www.npmjs.com/package/@sentinel-atl/server) | HTTP REST API server |
 | [`@sentinel-atl/cli`](https://www.npmjs.com/package/@sentinel-atl/cli) | Command-line tool |
 | [`@sentinel-atl/recovery`](https://www.npmjs.com/package/@sentinel-atl/recovery) | Shamir's Secret Sharing key backup |
@@ -167,6 +173,8 @@ Every arrow is cryptographically signed. Every step is audit-logged. Scope can o
 | [`@sentinel-atl/dashboard`](https://www.npmjs.com/package/@sentinel-atl/dashboard) | Trust visualization dashboard |
 | [`@sentinel-atl/conformance`](https://www.npmjs.com/package/@sentinel-atl/conformance) | STP protocol conformance test suite |
 | [`create-sentinel-app`](https://www.npmjs.com/package/create-sentinel-app) | `npx create-sentinel-app` scaffolder |
+| **Python SDK** | |
+| [`sentinel-atl`](https://pypi.org/project/sentinel-atl/) | Full Python SDK — DID, VC, reputation, audit, safety, LangChain |
 
 ## Proof of Intent — Why This Matters
 
@@ -206,21 +214,29 @@ project-sentinel/
 │   ├── core/           # DID, VC, Intent, Passport, crypto
 │   ├── handshake/      # Zero-trust mutual verification
 │   ├── reputation/     # Weighted scoring engine
-│   ├── audit/          # Hash-chain audit logging
+│   ├── audit/          # Hash-chain audit logging (standalone API)
 │   ├── recovery/       # Shamir's Secret Sharing
 │   ├── revocation/     # VC/DID revocation, key rotation, kill switch
 │   ├── attestation/    # Code attestation (bind DID → code hash)
 │   ├── stepup/         # Step-up auth (human re-approval)
 │   ├── offline/        # Offline mode, LRU cache, CRDT merge
-│   ├── safety/         # Content safety pipeline
-│   ├── adapters/       # LangChain, CrewAI, AutoGen, OpenAI adapters
+│   ├── safety/         # Content safety (regex + Azure/OpenAI/LlamaGuard)
+│   ├── adapters/       # Vercel AI, LangChain.js, MCP SDK, CrewAI, AutoGen
 │   ├── mcp-plugin/     # MCP tool-call gating middleware
+│   ├── mcp-proxy/      # Real MCP transport proxy (stdio/SSE)
+│   ├── store/          # Persistent storage (Redis, PostgreSQL, SQLite)
+│   ├── telemetry/      # OpenTelemetry traces, metrics, spans
+│   ├── budget/         # Token/cost budgets, circuit breakers
+│   ├── approval/       # Human approval workflows (Slack, Webhook, Web UI)
 │   ├── sdk/            # Developer SDK (5-line integration)
 │   ├── cli/            # sentinel CLI tool
 │   ├── hsm/            # HSM KeyProvider backends
 │   └── dashboard/      # Web trust visualization dashboard
+├── python/             # Python SDK (pip install sentinel-atl)
 ├── specs/              # Protocol specifications
 ├── examples/           # Working demos
+├── Dockerfile          # Production container
+├── docker-compose.yml  # Full stack (server + proxy + Redis)
 └── docs/               # Threat model, privacy policy
 ```
 
@@ -253,25 +269,75 @@ const safety = await agent.checkSafety('Ignore previous instructions...');
 // { safe: false, blocked: true, violations: [{ category: 'prompt_injection' }] }
 ```
 
-## Framework Adapters
+## Python SDK
 
-Sentinel works with **any** AI agent framework:
+Full-featured Python implementation with the same cryptographic guarantees:
 
-```ts
-import { withTrust, StubTrustVerifier } from '@sentinel-atl/adapters';
-
-// Universal wrapper — works with any async function
-const trustedBookFlight = withTrust(verifier, {
-  name: 'book_flight',
-  callerDid: agent.did,
-  scopes: ['travel:book'],
-  fn: async (dest: string) => bookFlight(dest),
-});
-
-await trustedBookFlight('Tokyo'); // Trust verified before execution
+```bash
+pip install sentinel-atl
 ```
 
-Adapters exist for **LangChain** (tool wrapper), **CrewAI** (task guard), **AutoGen** (message filter), and **OpenAI Agents SDK** (function guardrail).
+```python
+from sentinel_atl import create_trusted_agent
+
+agent = create_trusted_agent(name="my-agent", capabilities=["search", "book"])
+print(agent.did)  # did:key:z6Mk...
+
+# Issue credentials, check safety, audit — same API as TypeScript
+vc = agent.issue_credential(subject_did=peer.did, credential_type="AgentAuthorizationCredential")
+result = agent.check_safety("Ignore previous instructions...")
+# SafetyResult(safe=False, violations=[...])
+```
+
+LangChain integration included:
+
+```python
+from sentinel_atl.langchain import SentinelCallbackHandler
+chain.invoke({"input": "..."}, config={"callbacks": [SentinelCallbackHandler(agent)]})
+```
+
+## Docker Deployment
+
+Run the full stack in production:
+
+```bash
+docker compose up -d
+```
+
+This starts:
+- **Sentinel Server** on port 3000 (REST API)
+- **MCP Proxy** on port 3100 (stdio/SSE transport proxy)
+- **Approval UI** on port 3200 (human approval dashboard)
+- **Redis** for persistent storage
+
+Or run just the server:
+
+```bash
+docker build -t sentinel-server .
+docker run -p 3000:3000 sentinel-server
+```
+
+## Framework Adapters
+
+Sentinel integrates with real frameworks — not just shape-matching wrappers:
+
+```ts
+// Vercel AI SDK — middleware for tool verification
+import { createVercelAIMiddleware } from '@sentinel-atl/adapters';
+const middleware = createVercelAIMiddleware(verifier);
+
+// LangChain.js — callback handler for tool trust gating
+import { SentinelCallbackHandler } from '@sentinel-atl/adapters';
+const handler = new SentinelCallbackHandler(verifier);
+
+// MCP SDK — wrap any MCP server with trust checks
+import { wrapMCPServer } from '@sentinel-atl/adapters';
+wrapMCPServer(server, verifier);
+
+// Universal wrapper — works with any async function
+import { withTrust } from '@sentinel-atl/adapters';
+const trustedFn = withTrust(verifier, { name: 'search', fn: search });
+```
 
 ## Security
 
@@ -295,7 +361,14 @@ Report vulnerabilities to: security@sentinel-protocol.org
 ## Install
 
 ```bash
+# TypeScript/Node.js
 npm install @sentinel-atl/core @sentinel-atl/sdk
+
+# With storage + observability
+npm install @sentinel-atl/store @sentinel-atl/telemetry @sentinel-atl/budget
+
+# Python
+pip install sentinel-atl
 ```
 
 Or scaffold a complete app:
@@ -315,7 +388,8 @@ git clone https://github.com/sentinel-atl/project-sentinel.git
 cd project-sentinel
 npm install
 npm run build
-npm test             # 360 tests across 23 files
+npm test             # 360 tests across 23 files (TypeScript)
+cd python && pip install -e ".[dev]" && pytest  # 15 tests (Python)
 ```
 
 ## Protocol

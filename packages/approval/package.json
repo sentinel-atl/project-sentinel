@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/approval",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Human approval workflows for Sentinel step-up auth — Slack, webhook, and web UI delivery channels",
   "type": "module",
   "main": "dist/index.js",

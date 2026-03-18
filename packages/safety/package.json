@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/safety",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Content safety hooks for the Agent Trust Layer — pre-dispatch and post-response inspection with pluggable classifiers",
   "type": "module",
   "main": "dist/index.js",

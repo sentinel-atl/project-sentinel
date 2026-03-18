@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/reputation",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Weighted reputation scoring with negative vouches, Sybil resistance, and rate-limited vouching",
   "type": "module",
   "main": "dist/index.js",

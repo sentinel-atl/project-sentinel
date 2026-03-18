@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/recovery",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Key backup and recovery via Shamir's Secret Sharing (3-of-5 threshold)",
   "type": "module",
   "main": "dist/index.js",

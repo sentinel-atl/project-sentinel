@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sentinel-atl"
-version = "0.1.2"
+version = "0.2.0"
 description = "The Agent Trust Layer — identity, credentials, and reputation for AI agents (Python SDK)"
 readme = "README.md"
 license = { text = "Apache-2.0" }

@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/telemetry",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "OpenTelemetry instrumentation for Sentinel — traces, metrics, and span context for every trust decision",
   "type": "module",
   "main": "dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/budget",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Token and cost budget enforcement for AI agents — per-agent limits, circuit breakers, usage attribution",
   "type": "module",
   "main": "dist/index.js",

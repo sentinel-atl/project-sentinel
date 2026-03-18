@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/mcp-proxy",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "MCP transport proxy — intercepts stdio/SSE traffic, applies Sentinel trust checks, forwards to upstream MCP server",
   "type": "module",
   "main": "dist/index.js",
