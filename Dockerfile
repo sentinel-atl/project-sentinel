@@ -56,8 +56,8 @@ COPY --from=builder /app/packages/server/dist packages/server/dist
 # Install production deps only
 RUN npm ci --omit=dev --ignore-scripts
 
-# Create data directory for audit logs
-RUN mkdir -p /data && chown sentinel:sentinel /data
+# Create data and tmp directories for audit logs and temp files
+RUN mkdir -p /data /tmp/sentinel && chown -R sentinel:sentinel /data /tmp/sentinel
 
 USER sentinel
 
@@ -68,7 +68,10 @@ ENV SENTINEL_DATA_DIR=/data
 
 EXPOSE 3000
 
+# Container runs as read-only filesystem; mount /data for writable audit logs
+# docker run --read-only --tmpfs /tmp sentinel-server
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3000/.well-known/sentinel-configuration || exit 1
+  CMD wget -qO- http://localhost:3000/health || exit 1
 
 CMD ["node", "packages/server/dist/index.js"]

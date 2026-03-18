@@ -7,7 +7,7 @@ Give your AI agents cryptographic identity, verifiable credentials, and zero-tru
 [![npm](https://img.shields.io/npm/v/@sentinel-atl/core?label=npm)](https://www.npmjs.com/package/@sentinel-atl/core)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-502%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-513%20passing-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg)](python/)
 [![Protocol](https://img.shields.io/badge/Protocol-STP%20v1.0-green.svg)](specs/sentinel-trust-protocol-v1.0.md)
 
@@ -432,6 +432,30 @@ const trustedFn = withTrust(verifier, { name: 'search', fn: search });
 
 Report vulnerabilities to: security@sentinel-protocol.org
 
+## Production Ready
+
+Sentinel ships with batteries included for production deployments:
+
+| Capability | Details |
+|---|---|
+| **Security Headers** | `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options` on every response |
+| **Health & Readiness** | `/health` (liveness + uptime) and `/ready` (subsystem checks) endpoints |
+| **Structured Logging** | JSON logger with configurable levels (`debug`, `info`, `warn`, `error`) |
+| **Graceful Shutdown** | SIGTERM/SIGINT handlers with 10s connection drain |
+| **Request Tracing** | `X-Request-Id` on every response via `crypto.randomUUID()` |
+| **Distributed Rate Limiting** | Redis-backed atomic rate limiting via `@sentinel-atl/store` |
+| **Audit Log Rotation** | Size-based and time-based rotation with configurable retention |
+| **Env Validation** | Schema-based environment variable validation at startup |
+| **Config Validation** | Server startup validates required fields before binding |
+| **CORS** | Opt-in origin allowlist (default: locked down) |
+| **Auth** | Token auth via `authConfigFromEnv()` with public path exclusions |
+| **Docker Hardening** | Read-only filesystem, resource limits, non-root user, log caps |
+| **CI Security** | `npm audit` + Trivy container scanning in GitHub Actions |
+| **Release Automation** | Changesets + SLSA provenance on npm publishes |
+| **OpenTelemetry** | Traces, metrics, and spans via `@sentinel-atl/telemetry` |
+
+See the [Operations Guide](docs/operations-guide.md) for deployment, scaling, and monitoring details.
+
 ## Install
 
 ```bash
@@ -462,7 +486,7 @@ git clone https://github.com/sentinel-atl/project-sentinel.git
 cd project-sentinel
 npm install
 npm run build
-npm test             # 502 tests across 29 files (TypeScript)
+npm test             # 513 tests across 30 files (TypeScript)
 cd python && pip install -e ".[dev]" && pytest  # 15 tests (Python)
 ```
 

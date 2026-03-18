@@ -21,11 +21,11 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "*",
-    "@sentinel-atl/scanner": "*",
-    "@sentinel-atl/audit": "*",
-    "@sentinel-atl/hardening": "*",
-    "@sentinel-atl/store": "*",
+    "@sentinel-atl/core": "workspace:*",
+    "@sentinel-atl/scanner": "workspace:*",
+    "@sentinel-atl/audit": "workspace:*",
+    "@sentinel-atl/hardening": "workspace:*",
+    "@sentinel-atl/store": "workspace:*",
     "yaml": "^2.7.0"
   },
   "devDependencies": {

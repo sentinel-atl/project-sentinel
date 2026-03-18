@@ -18,7 +18,22 @@ process.on('uncaughtException', (err) => {
  */
 
 import { RegistryServer } from './server.js';
+import { CertificateStore } from './store.js';
 import { authConfigFromEnv, corsConfigFromEnv, tlsConfigFromEnv } from '@sentinel-atl/hardening';
+import { MemoryStore } from '@sentinel-atl/store';
+
+async function resolveStore() {
+  const redisUrl = process.env['REDIS_URL'];
+  if (redisUrl) {
+    try {
+      const { RedisStore } = await import('@sentinel-atl/store');
+      return new RedisStore({ url: redisUrl, prefix: 'registry:' });
+    } catch {
+      console.warn('  ⚠ REDIS_URL set but ioredis not available, falling back to memory store');
+    }
+  }
+  return new MemoryStore();
+}
 
 const args = process.argv.slice(2);
 
@@ -44,8 +59,12 @@ if (args.includes('--help') || args.includes('-h')) {
 const portIdx = args.indexOf('--port');
 const port = portIdx !== -1 ? parseInt(args[portIdx + 1]) : 3200;
 
+const backend = await resolveStore();
+const store = new CertificateStore({ backend });
+
 const server = new RegistryServer({
   port,
+  store,
   auth: authConfigFromEnv(),
   cors: corsConfigFromEnv(),
   tls: tlsConfigFromEnv(),

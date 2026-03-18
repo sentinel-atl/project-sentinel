@@ -47,6 +47,7 @@ import {
   type MCPToolCallRequest,
   type VerifyResult,
 } from '@sentinel-atl/mcp-plugin';
+import type { SentinelStore } from '@sentinel-atl/store';
 
 // ─── Configuration Types ─────────────────────────────────────────────
 
@@ -83,6 +84,12 @@ export interface GatewayConfig {
 
   /** Shared revocation manager */
   revocationManager?: RevocationManager;
+
+  /** Persistent store for rate-limit state (shared across replicas) */
+  store?: SentinelStore;
+
+  /** Optional telemetry instance for metrics and tracing */
+  telemetry?: import('@sentinel-atl/telemetry').SentinelTelemetry;
 }
 
 export interface ToolPolicy {
@@ -127,7 +134,13 @@ export interface GatewayStats {
 
 // ─── Rate Limiter ────────────────────────────────────────────────────
 
-class CallerRateLimiter {
+interface RateLimiterBackend {
+  check(callerDid: string): Promise<{ allowed: boolean; retryAfterMs?: number }> | { allowed: boolean; retryAfterMs?: number };
+  reset(callerDid: string): void;
+  resetAll(): void;
+}
+
+class CallerRateLimiter implements RateLimiterBackend {
   private windows = new Map<string, { count: number; resetAt: number }>();
 
   constructor(
@@ -161,6 +174,40 @@ class CallerRateLimiter {
   }
 }
 
+/**
+ * Store-backed rate limiter for distributed deployments.
+ * Uses SentinelStore atomic increment to share state across replicas.
+ */
+class DistributedRateLimiter implements RateLimiterBackend {
+  constructor(
+    private store: SentinelStore,
+    private maxRequests: number,
+    private windowMs: number,
+    private prefix = 'ratelimit:'
+  ) {}
+
+  async check(callerDid: string): Promise<{ allowed: boolean; retryAfterMs?: number }> {
+    const windowKey = `${this.prefix}${callerDid}`;
+    const count = await this.store.increment(windowKey);
+    // Set TTL on first request in window
+    if (count === 1) {
+      await this.store.set(windowKey, '1', Math.ceil(this.windowMs / 1000));
+    }
+    if (count > this.maxRequests) {
+      return { allowed: false, retryAfterMs: this.windowMs };
+    }
+    return { allowed: true };
+  }
+
+  reset(callerDid: string): void {
+    this.store.delete(`${this.prefix}${callerDid}`);
+  }
+
+  resetAll(): void {
+    // No-op for distributed — keys expire via TTL
+  }
+}
+
 // ─── Gateway Implementation ──────────────────────────────────────────
 
 export class MCPSecurityGateway {
@@ -174,9 +221,10 @@ export class MCPSecurityGateway {
   private offlineManager: OfflineManager;
   private safetyPipeline: SafetyPipeline | undefined;
   private keyProvider: KeyProvider;
+  private telemetry?: { recordGatewayCall: (tool: string, callerDid: string, outcome: 'allow' | 'deny' | 'error') => void; recordTrustDecision: (attrs: { callerDid?: string; tool?: string; outcome: 'allow' | 'deny' | 'error'; latencyMs?: number }) => void };
 
   private toolPolicies = new Map<string, ToolPolicy>();
-  private rateLimiter: CallerRateLimiter;
+  private rateLimiter: RateLimiterBackend;
   private stats: GatewayStats = {
     totalRequests: 0,
     allowed: 0,
@@ -197,7 +245,8 @@ export class MCPSecurityGateway {
     revocationManager: RevocationManager,
     offlineManager: OfflineManager,
     safetyPipeline: SafetyPipeline | undefined,
-    rateLimiter: CallerRateLimiter
+    rateLimiter: RateLimiterBackend,
+    telemetry?: MCPSecurityGateway['telemetry']
   ) {
     this.did = identity.did;
     this.keyId = identity.keyId;
@@ -209,6 +258,7 @@ export class MCPSecurityGateway {
     this.offlineManager = offlineManager;
     this.safetyPipeline = safetyPipeline;
     this.rateLimiter = rateLimiter;
+    this.telemetry = telemetry;
   }
 
   // ─── Tool Policies ──────────────────────────────────────────────
@@ -254,7 +304,7 @@ export class MCPSecurityGateway {
     callerStats.lastSeen = new Date().toISOString();
 
     // 1. Rate limiting
-    const rateCheck = this.rateLimiter.check(request.callerDid);
+    const rateCheck = await this.rateLimiter.check(request.callerDid);
     if (!rateCheck.allowed) {
       this.stats.denied++;
       this.stats.rateLimited++;
@@ -360,13 +410,19 @@ export class MCPSecurityGateway {
     callerStats.allowed++;
     await this.audit('session_created', request.callerDid, 'success', `Tool call: ${request.toolName}`);
 
+    const latencyMs = performance.now() - start;
+
+    // Emit telemetry
+    this.telemetry?.recordGatewayCall(request.toolName, request.callerDid, 'allow');
+    this.telemetry?.recordTrustDecision({ callerDid: request.callerDid, tool: request.toolName, outcome: 'allow', latencyMs });
+
     return {
       allowed: true,
       checks: verifyResult.checks,
       callerReputation: verifyResult.callerReputation,
       offlineDecision: verifyResult.offlineDecision,
       safetyResult: verifyResult.safetyResult,
-      gatewayLatencyMs: performance.now() - start,
+      gatewayLatencyMs: latencyMs,
     };
   }
 
@@ -581,11 +637,12 @@ export async function createGateway(config: GatewayConfig): Promise<MCPSecurityG
     toolScopes,
   });
 
-  // 5. Rate limiter
-  const rateLimiter = new CallerRateLimiter(
-    config.rateLimitMax ?? 100,
-    config.rateLimitWindowMs ?? 60_000
-  );
+  // 5. Rate limiter (distributed if store is provided)
+  const maxReqs = config.rateLimitMax ?? 100;
+  const windowMs = config.rateLimitWindowMs ?? 60_000;
+  const rateLimiter: RateLimiterBackend = config.store
+    ? new DistributedRateLimiter(config.store, maxReqs, windowMs)
+    : new CallerRateLimiter(maxReqs, windowMs);
 
   // 6. Log gateway creation
   await auditLog.log({
@@ -604,7 +661,8 @@ export async function createGateway(config: GatewayConfig): Promise<MCPSecurityG
     revocationManager,
     offlineManager,
     safetyPipeline,
-    rateLimiter
+    rateLimiter,
+    config.telemetry
   );
 }
 

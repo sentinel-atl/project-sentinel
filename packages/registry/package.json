@@ -21,9 +21,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/scanner": "*",
-    "@sentinel-atl/hardening": "*",
-    "@sentinel-atl/store": "*"
+    "@sentinel-atl/scanner": "workspace:*",
+    "@sentinel-atl/hardening": "workspace:*",
+    "@sentinel-atl/store": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

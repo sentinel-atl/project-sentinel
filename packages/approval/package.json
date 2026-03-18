@@ -18,9 +18,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": ">=0.1.1",
-    "@sentinel-atl/stepup": ">=0.1.1",
-    "@sentinel-atl/audit": ">=0.1.1"
+    "@sentinel-atl/core": "workspace:*",
+    "@sentinel-atl/stepup": "workspace:*",
+    "@sentinel-atl/audit": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

@@ -18,14 +18,15 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": ">=0.1.1",
-    "@sentinel-atl/mcp-plugin": ">=0.1.1",
-    "@sentinel-atl/sdk": ">=0.1.1",
-    "@sentinel-atl/audit": ">=0.1.1",
-    "@sentinel-atl/reputation": ">=0.1.1",
-    "@sentinel-atl/revocation": ">=0.1.1",
-    "@sentinel-atl/safety": ">=0.1.1",
-    "@sentinel-atl/offline": ">=0.1.1"
+    "@sentinel-atl/core": "workspace:*",
+    "@sentinel-atl/mcp-plugin": "workspace:*",
+    "@sentinel-atl/sdk": "workspace:*",
+    "@sentinel-atl/audit": "workspace:*",
+    "@sentinel-atl/reputation": "workspace:*",
+    "@sentinel-atl/revocation": "workspace:*",
+    "@sentinel-atl/safety": "workspace:*",
+    "@sentinel-atl/offline": "workspace:*",
+    "@sentinel-atl/store": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

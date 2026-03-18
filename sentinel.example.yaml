@@ -10,6 +10,15 @@ gateway:
   minGrade: C               # global minimum grade
   logPath: ./sentinel-gateway-audit.jsonl
 
+  # Security: restrict CORS to your own origins (never use '*' in production)
+  corsOrigins: []            # e.g. ['https://my-app.example.com']
+
+  # API Key authentication (recommended for production)
+  # Set SENTINEL_API_KEYS env var: key1:read,write;key2:admin
+  auth:
+    enabled: true
+    publicPaths: ['/health', '/ready', '/.well-known/sentinel-configuration']
+
 servers:
   # Filesystem server — read-only access with high trust requirements
   - name: filesystem

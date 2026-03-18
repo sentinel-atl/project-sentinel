@@ -15,6 +15,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
+import crypto from 'node:crypto';
 import {
   createIdentity,
   InMemoryKeyProvider,
@@ -38,6 +39,64 @@ import { AuditLog } from '@sentinel-atl/audit';
 import { ReputationEngine, type ReputationScore } from '@sentinel-atl/reputation';
 import { RevocationManager, type RevocationReason } from '@sentinel-atl/revocation';
 import { SafetyPipeline, RegexClassifier, type ContentClassifier } from '@sentinel-atl/safety';
+import {
+  applySecurityHeaders,
+  securityHeadersConfigFromEnv,
+  applyCors,
+  defaultCorsConfig,
+  type CorsConfig,
+  type SecurityHeadersConfig,
+} from '@sentinel-atl/hardening';
+
+// ─── Logger ──────────────────────────────────────────────────────────
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+
+export interface Logger {
+  debug(msg: string, meta?: Record<string, unknown>): void;
+  info(msg: string, meta?: Record<string, unknown>): void;
+  warn(msg: string, meta?: Record<string, unknown>): void;
+  error(msg: string, meta?: Record<string, unknown>): void;
+}
+
+function createLogger(name: string, minLevel: LogLevel = 'info'): Logger {
+  const minLevelNum = LOG_LEVELS[minLevel];
+  const emit = (level: LogLevel, msg: string, meta?: Record<string, unknown>) => {
+    if (LOG_LEVELS[level] < minLevelNum) return;
+    const entry = {
+      ts: new Date().toISOString(),
+      level,
+      service: name,
+      msg,
+      ...meta,
+    };
+    const line = JSON.stringify(entry);
+    if (level === 'error') process.stderr.write(line + '\n');
+    else process.stdout.write(line + '\n');
+  };
+  return {
+    debug: (msg, meta) => emit('debug', msg, meta),
+    info: (msg, meta) => emit('info', msg, meta),
+    warn: (msg, meta) => emit('warn', msg, meta),
+    error: (msg, meta) => emit('error', msg, meta),
+  };
+}
+
+// ─── Typed Errors ────────────────────────────────────────────────────
+
+export class STPError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly code: string,
+    message: string,
+    public readonly details?: unknown
+  ) {
+    super(message);
+    this.name = 'STPError';
+  }
+}
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -60,8 +119,12 @@ export interface STPServerConfig {
   safetyClassifiers?: ContentClassifier[];
   /** Capabilities to expose (default: all) */
   capabilities?: string[];
-  /** CORS allowed origins (default: ['*']) */
+  /** CORS allowed origins (default: [] — no cross-origin allowed) */
   corsOrigins?: string[];
+  /** Log level (default: 'info') */
+  logLevel?: LogLevel;
+  /** Enable security headers (default: true) */
+  securityHeaders?: boolean;
 }
 
 export interface STPServer {
@@ -143,6 +206,10 @@ class STPServerImpl implements STPServer {
   private seenNonces = new Set<string>();
   private routes = new Map<string, RouteHandler>();
   private identities = new Map<string, AgentIdentity>();
+  private logger: Logger;
+  private corsConfig: CorsConfig;
+  private securityHeadersEnabled: boolean;
+  private startedAt: number = 0;
 
   constructor(
     identity: AgentIdentity,
@@ -164,7 +231,14 @@ class STPServerImpl implements STPServer {
       ...config,
       port: config.port ?? 3100,
       hostname: config.hostname ?? '0.0.0.0',
-      corsOrigins: config.corsOrigins ?? ['*'],
+      corsOrigins: config.corsOrigins ?? [],
+    };
+    this.logger = createLogger(`stp-server-${config.name}`, config.logLevel ?? 'info');
+    this.securityHeadersEnabled = config.securityHeaders !== false;
+    this.corsConfig = {
+      allowedOrigins: this.config.corsOrigins.length > 0 ? this.config.corsOrigins : [],
+      allowedMethods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
     };
 
     this.identities.set(identity.did, identity);
@@ -181,8 +255,28 @@ class STPServerImpl implements STPServer {
   // ─── Lifecycle ───────────────────────────────────────────────
 
   async start(): Promise<void> {
+    // Global error boundary
+    process.on('unhandledRejection', (reason) => {
+      this.logger.error('Unhandled rejection', { error: String(reason) });
+    });
+    process.on('uncaughtException', (err) => {
+      this.logger.error('Uncaught exception — shutting down', { error: err.message });
+      this.gracefulShutdown(1);
+    });
+
+    // Graceful shutdown on signals
+    const onSignal = () => this.gracefulShutdown(0);
+    process.on('SIGTERM', onSignal);
+    process.on('SIGINT', onSignal);
+
+    this.startedAt = Date.now();
     return new Promise((resolve) => {
       this.httpServer.listen(this.config.port, this.config.hostname, () => {
+        this.logger.info('Server started', {
+          port: this.config.port,
+          hostname: this.config.hostname,
+          did: this.did,
+        });
         resolve();
       });
     });
@@ -196,6 +290,19 @@ class STPServerImpl implements STPServer {
     });
   }
 
+  private gracefulShutdown(code: number): void {
+    this.logger.info('Graceful shutdown initiated');
+    this.httpServer.close(() => {
+      this.logger.info('Server closed');
+      process.exit(code);
+    });
+    // Force exit after 10s if connections don't drain
+    setTimeout(() => {
+      this.logger.warn('Forced shutdown after timeout');
+      process.exit(code);
+    }, 10_000).unref();
+  }
+
   getHttpServer(): Server { return this.httpServer; }
   getKeyProvider(): KeyProvider { return this.keyProvider; }
   getAuditLog(): AuditLog { return this.auditLog; }
@@ -205,16 +312,18 @@ class STPServerImpl implements STPServer {
   // ─── Request Handling ────────────────────────────────────────
 
   private async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    // CORS
-    const origin = req.headers.origin ?? '*';
-    const allowedOrigins = this.config.corsOrigins;
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    const requestId = crypto.randomUUID();
+    res.setHeader('X-Request-Id', requestId);
 
-    if (req.method === 'OPTIONS') {
+    // Security headers
+    if (this.securityHeadersEnabled) {
+      applySecurityHeaders(res, securityHeadersConfigFromEnv());
+    }
+
+    // CORS
+    if (this.corsConfig.allowedOrigins.length > 0) {
+      if (applyCors(req, res, this.corsConfig)) return; // preflight handled
+    } else if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
       return;
@@ -223,6 +332,25 @@ class STPServerImpl implements STPServer {
     const method = req.method ?? 'GET';
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
     const routeKey = `${method} ${url.pathname}`;
+
+    // Built-in health check
+    if (url.pathname === '/health' && method === 'GET') {
+      jsonResponse(res, 200, {
+        status: 'ok',
+        uptime: Math.floor((Date.now() - this.startedAt) / 1000),
+        did: this.did,
+      });
+      return;
+    }
+    if (url.pathname === '/ready' && method === 'GET') {
+      const auditOk = this.auditLog !== undefined;
+      const ok = auditOk;
+      jsonResponse(res, ok ? 200 : 503, {
+        status: ok ? 'ready' : 'not_ready',
+        checks: { audit: auditOk },
+      });
+      return;
+    }
 
     // Check for parameterized routes
     const handler = this.findRoute(method, url.pathname);
@@ -239,7 +367,18 @@ class STPServerImpl implements STPServer {
       }
       await handler.fn(req, res, body);
     } catch (e) {
-      errorResponse(res, 500, 'INTERNAL_ERROR', (e as Error).message);
+      if (e instanceof STPError) {
+        this.logger.warn('Request error', { requestId, code: e.code, message: e.message });
+        errorResponse(res, e.statusCode, e.code, e.message, e.details);
+      } else {
+        this.logger.error('Unhandled request error', {
+          requestId,
+          route: routeKey,
+          error: (e as Error).message,
+          stack: (e as Error).stack,
+        });
+        errorResponse(res, 500, 'INTERNAL_ERROR', 'An internal error occurred');
+      }
     }
   }
 
@@ -758,6 +897,23 @@ class STPServerImpl implements STPServer {
  * ```
  */
 export async function createSTPServer(config: STPServerConfig): Promise<STPServer> {
+  // Validate config at startup — fail fast on bad configuration
+  if (!config.name || typeof config.name !== 'string') {
+    throw new Error('STPServerConfig.name is required');
+  }
+  if (config.port !== undefined && (config.port < 1 || config.port > 65535)) {
+    throw new Error(`Invalid port: ${config.port}`);
+  }
+  if (config.corsOrigins && !Array.isArray(config.corsOrigins)) {
+    throw new Error('corsOrigins must be an array of strings');
+  }
+  if (config.minReputation !== undefined && (config.minReputation < 0 || config.minReputation > 100)) {
+    throw new Error('minReputation must be between 0 and 100');
+  }
+
+  const logger = createLogger(`stp-server-${config.name}`, config.logLevel ?? 'info');
+  logger.info('Initializing server', { name: config.name, port: config.port ?? 3100 });
+
   const keyProvider = config.keyProvider ?? new InMemoryKeyProvider();
   const identity = await createIdentity(keyProvider, `stp-server-${config.name}`);
 

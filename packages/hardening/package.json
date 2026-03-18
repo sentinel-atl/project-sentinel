@@ -18,7 +18,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/store": "*"
+    "@sentinel-atl/store": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

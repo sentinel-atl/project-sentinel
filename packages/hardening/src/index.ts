@@ -60,3 +60,11 @@ export {
   securityHeadersConfigFromEnv,
   type SecurityHeadersConfig,
 } from './security-headers.js';
+
+export {
+  validateEnv,
+  requireValidEnv,
+  SENTINEL_ENV_SCHEMA,
+  type EnvVarDef,
+  type ValidationResult,
+} from './env-validation.js';

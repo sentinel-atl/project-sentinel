@@ -19,12 +19,12 @@
     "serve": "tsx src/server.ts"
   },
   "dependencies": {
-    "@sentinel-atl/core": ">=0.1.1",
-    "@sentinel-atl/reputation": ">=0.1.1",
-    "@sentinel-atl/audit": ">=0.1.1",
-    "@sentinel-atl/revocation": ">=0.1.1",
-    "@sentinel-atl/attestation": ">=0.1.1",
-    "@sentinel-atl/offline": ">=0.1.1"
+    "@sentinel-atl/core": "workspace:*",
+    "@sentinel-atl/reputation": "workspace:*",
+    "@sentinel-atl/audit": "workspace:*",
+    "@sentinel-atl/revocation": "workspace:*",
+    "@sentinel-atl/attestation": "workspace:*",
+    "@sentinel-atl/offline": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

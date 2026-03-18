@@ -22,6 +22,7 @@ import { gradeBadge, scoreBadge, verifiedBadge, notFoundBadge, type BadgeStyle }
 import {
   authenticate, hasScope, sendUnauthorized, sendForbidden,
   applyCors, defaultCorsConfig,
+  authConfigFromEnv,
   createSecureServer,
   applySecurityHeaders,
   type AuthConfig, type CorsConfig, type TlsConfig,
@@ -56,13 +57,19 @@ export class RegistryServer {
   constructor(options?: RegistryServerOptions) {
     this.port = options?.port ?? 3200;
     this.store = options?.store ?? new CertificateStore();
-    this.authConfig = options?.auth ?? { enabled: false, keys: [] };
+    this.authConfig = options?.auth ?? authConfigFromEnv();
     this.corsConfig = options?.cors ?? defaultCorsConfig();
     this.tlsConfig = options?.tls;
 
-    // Badge endpoints are always public (for README embeds)
-    if (this.authConfig.enabled && !this.authConfig.publicPaths) {
-      this.authConfig.publicPaths = ['/health'];
+    // Badge and health endpoints are always public
+    if (!this.authConfig.publicPaths) {
+      this.authConfig.publicPaths = [];
+    }
+    const publicDefaults = ['/health', '/ready'];
+    for (const p of publicDefaults) {
+      if (!this.authConfig.publicPaths.includes(p)) {
+        this.authConfig.publicPaths.push(p);
+      }
     }
   }
 

@@ -9,7 +9,7 @@
  */
 
 import { hash, toHex, textToBytes } from '@sentinel-atl/core';
-import { appendFile, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, readFile, writeFile, stat, rename, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -51,6 +51,12 @@ export interface AuditLogConfig {
   logPath: string;
   /** Maximum retention in days (default: 90) */
   retentionDays?: number;
+  /** Maximum log file size in bytes before rotation (default: 10 MB) */
+  maxSizeBytes?: number;
+  /** Maximum number of rotated files to keep (default: 10) */
+  maxRotatedFiles?: number;
+  /** Rotation interval: 'size' | 'daily' | 'hourly' (default: 'size') */
+  rotationInterval?: 'size' | 'daily' | 'hourly';
 }
 
 const GENESIS_HASH = '0'.repeat(64);
@@ -85,9 +91,20 @@ export class AuditLog {
   private logPath: string;
   private lastHash: string = GENESIS_HASH;
   private initialized = false;
+  private rotationConfig: {
+    maxSizeBytes: number;
+    maxFiles: number;
+    interval: 'size' | 'daily' | 'hourly';
+  };
+  private writesSinceRotationCheck = 0;
 
   constructor(config: AuditLogConfig) {
     this.logPath = config.logPath;
+    this.rotationConfig = {
+      maxSizeBytes: config.maxSizeBytes ?? 10_485_760,
+      maxFiles: config.maxRotatedFiles ?? 10,
+      interval: config.rotationInterval ?? 'size',
+    };
   }
 
   /**
@@ -143,7 +160,60 @@ export class AuditLog {
     await appendFile(this.logPath, JSON.stringify(entry) + '\n', 'utf-8');
     this.lastHash = entryHash;
 
+    // Check rotation every 100 writes to avoid stat() on every append
+    this.writesSinceRotationCheck++;
+    if (this.writesSinceRotationCheck >= 100) {
+      this.writesSinceRotationCheck = 0;
+      await this.maybeRotate();
+    }
+
     return entry;
+  }
+
+  /**
+   * Rotate the log file if it exceeds configured limits.
+   * Rotation creates numbered backups (log.jsonl.1, .2, etc.)
+   * and starts a fresh chain with GENESIS_HASH.
+   */
+  async maybeRotate(): Promise<boolean> {
+    if (!existsSync(this.logPath)) return false;
+
+    const { maxSizeBytes, maxFiles, interval } = this.rotationConfig;
+    const fileStat = await stat(this.logPath);
+
+    let shouldRotate = false;
+    if (interval === 'size') {
+      shouldRotate = fileStat.size >= maxSizeBytes;
+    } else if (interval === 'daily' || interval === 'hourly') {
+      const now = new Date();
+      const fileTime = new Date(fileStat.mtime);
+      if (interval === 'daily') {
+        shouldRotate = now.toDateString() !== fileTime.toDateString();
+      } else {
+        shouldRotate = now.getHours() !== fileTime.getHours() ||
+                       now.toDateString() !== fileTime.toDateString();
+      }
+    }
+
+    if (!shouldRotate) return false;
+
+    // Shift existing rotated files
+    for (let i = maxFiles - 1; i >= 1; i--) {
+      const from = `${this.logPath}.${i}`;
+      const to = `${this.logPath}.${i + 1}`;
+      if (existsSync(from)) {
+        await rename(from, to);
+      }
+    }
+    const oldest = `${this.logPath}.${maxFiles}`;
+    if (existsSync(oldest)) {
+      await unlink(oldest);
+    }
+    await rename(this.logPath, `${this.logPath}.1`);
+
+    // Reset chain for the new log file
+    this.lastHash = GENESIS_HASH;
+    return true;
   }
 
   /**
