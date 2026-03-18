@@ -1,0 +1,197 @@
+/**
+ * Certificate Store — in-memory storage for Sentinel Trust Certificates.
+ *
+ * Provides CRUD operations and query capabilities.
+ * Designed to be replaceable with a persistent backend (SQLite, Postgres, Cosmos DB).
+ */
+
+import { verifySTC, type SentinelTrustCertificate, type STCVerifyResult } from '@sentinel-atl/scanner';
+
+// ─── Types ───────────────────────────────────────────────────────────
+
+export interface RegistryEntry {
+  /** STC ID */
+  id: string;
+  /** Full certificate */
+  certificate: SentinelTrustCertificate;
+  /** Package name (for lookup) */
+  packageName: string;
+  /** Package version */
+  packageVersion: string;
+  /** Trust score */
+  trustScore: number;
+  /** Grade */
+  grade: string;
+  /** Whether signature is verified */
+  verified: boolean;
+  /** When the entry was registered */
+  registeredAt: string;
+  /** Issuer DID */
+  issuerDid: string;
+}
+
+export interface RegistryQuery {
+  /** Filter by package name */
+  packageName?: string;
+  /** Filter by minimum trust score */
+  minScore?: number;
+  /** Filter by minimum grade */
+  minGrade?: string;
+  /** Filter by verified status */
+  verified?: boolean;
+  /** Maximum results */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
+
+export interface RegistryStats {
+  totalCertificates: number;
+  verifiedCertificates: number;
+  uniquePackages: number;
+  averageScore: number;
+  gradeDistribution: Record<string, number>;
+}
+
+// ─── Grade Helpers ───────────────────────────────────────────────────
+
+const GRADE_ORDER: Record<string, number> = { A: 4, B: 3, C: 2, D: 1, F: 0 };
+
+function gradeAtLeast(actual: string, required: string): boolean {
+  return (GRADE_ORDER[actual] ?? 0) >= (GRADE_ORDER[required] ?? 0);
+}
+
+// ─── Store ───────────────────────────────────────────────────────────
+
+export class CertificateStore {
+  private entries = new Map<string, RegistryEntry>();
+  /** Index: packageName → entry IDs (newest first) */
+  private byPackage = new Map<string, string[]>();
+
+  /**
+   * Register a new certificate. Verifies signature before storing.
+   */
+  async register(certificate: SentinelTrustCertificate): Promise<RegistryEntry> {
+    const result: STCVerifyResult = await verifySTC(certificate);
+
+    const entry: RegistryEntry = {
+      id: certificate.id,
+      certificate,
+      packageName: certificate.subject.packageName,
+      packageVersion: certificate.subject.packageVersion,
+      trustScore: certificate.trustScore.overall,
+      grade: certificate.trustScore.grade,
+      verified: result.valid,
+      registeredAt: new Date().toISOString(),
+      issuerDid: certificate.issuer.did,
+    };
+
+    this.entries.set(entry.id, entry);
+
+    // Update package index
+    const existing = this.byPackage.get(entry.packageName) ?? [];
+    existing.unshift(entry.id); // newest first
+    this.byPackage.set(entry.packageName, existing);
+
+    return entry;
+  }
+
+  /**
+   * Get a certificate by ID.
+   */
+  get(id: string): RegistryEntry | undefined {
+    return this.entries.get(id);
+  }
+
+  /**
+   * Get the latest certificate for a package.
+   */
+  getLatestForPackage(packageName: string): RegistryEntry | undefined {
+    const ids = this.byPackage.get(packageName);
+    if (!ids || ids.length === 0) return undefined;
+    return this.entries.get(ids[0]);
+  }
+
+  /**
+   * Get all certificates for a package.
+   */
+  getForPackage(packageName: string): RegistryEntry[] {
+    const ids = this.byPackage.get(packageName) ?? [];
+    return ids.map(id => this.entries.get(id)!).filter(Boolean);
+  }
+
+  /**
+   * Query certificates with filters.
+   */
+  query(q: RegistryQuery): RegistryEntry[] {
+    let results = Array.from(this.entries.values());
+
+    if (q.packageName) {
+      results = results.filter(e => e.packageName === q.packageName);
+    }
+    if (q.minScore !== undefined) {
+      results = results.filter(e => e.trustScore >= q.minScore!);
+    }
+    if (q.minGrade) {
+      results = results.filter(e => gradeAtLeast(e.grade, q.minGrade!));
+    }
+    if (q.verified !== undefined) {
+      results = results.filter(e => e.verified === q.verified);
+    }
+
+    // Sort by registeredAt descending
+    results.sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
+
+    const offset = q.offset ?? 0;
+    const limit = q.limit ?? 50;
+    return results.slice(offset, offset + limit);
+  }
+
+  /**
+   * Remove a certificate by ID.
+   */
+  remove(id: string): boolean {
+    const entry = this.entries.get(id);
+    if (!entry) return false;
+
+    this.entries.delete(id);
+
+    const ids = this.byPackage.get(entry.packageName);
+    if (ids) {
+      const idx = ids.indexOf(id);
+      if (idx !== -1) ids.splice(idx, 1);
+      if (ids.length === 0) this.byPackage.delete(entry.packageName);
+    }
+
+    return true;
+  }
+
+  /**
+   * Get registry statistics.
+   */
+  getStats(): RegistryStats {
+    const all = Array.from(this.entries.values());
+    const gradeDistribution: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+
+    let totalScore = 0;
+    for (const entry of all) {
+      totalScore += entry.trustScore;
+      gradeDistribution[entry.grade] = (gradeDistribution[entry.grade] ?? 0) + 1;
+    }
+
+    return {
+      totalCertificates: all.length,
+      verifiedCertificates: all.filter(e => e.verified).length,
+      uniquePackages: this.byPackage.size,
+      averageScore: all.length > 0 ? Math.round(totalScore / all.length) : 0,
+      gradeDistribution,
+    };
+  }
+
+  /**
+   * Get total count (for pagination).
+   */
+  count(): number {
+    return this.entries.size;
+  }
+}

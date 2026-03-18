@@ -29,3 +29,8 @@ export {
   TrustStore,
   type StoredCertificate,
 } from './trust-store.js';
+
+export {
+  TrustGatewayProxy,
+  type ProxyOptions,
+} from './proxy.js';

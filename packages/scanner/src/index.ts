@@ -72,3 +72,9 @@ export {
   type MCPTool,
   type ProbeOptions,
 } from './tool-prober.js';
+
+export {
+  scanPublisher,
+  type PublisherInfo,
+  type PublisherScanResult,
+} from './publisher-scanner.js';

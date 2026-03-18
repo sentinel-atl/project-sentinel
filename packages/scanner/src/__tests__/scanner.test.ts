@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { scan, scanCodePatterns, scanPermissions, computeTrustScore, issueSTC, verifySTC, resolvePackage, cleanupPackage } from '../index.js';
+import { scan, scanCodePatterns, scanPermissions, computeTrustScore, issueSTC, verifySTC, resolvePackage, cleanupPackage, scanPublisher } from '../index.js';
 import { InMemoryKeyProvider, publicKeyToDid } from '@sentinel-atl/core';
 import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -166,9 +166,10 @@ describe('scan (full)', () => {
     });
 
     const report = await scan({ packagePath: dir, skipDependencies: true });
-    expect(report.trustScore.overall).toBeGreaterThanOrEqual(75);
-    expect(report.trustScore.grade).toMatch(/^[AB]$/);
-    expect(report.findings).toHaveLength(0);
+    expect(report.trustScore.overall).toBeGreaterThanOrEqual(60);
+    expect(report.trustScore.grade).toMatch(/^[ABC]$/);
+    // Only publisher findings expected (package doesn't exist on npm)
+    expect(report.findings.filter(f => f.category !== 'publisher')).toHaveLength(0);
   });
 
   it('gives low score to risky packages', async () => {
@@ -325,4 +326,48 @@ describe('resolvePackage', () => {
       await cleanupPackage(resolved);
     }
   }, 30_000);
+});
+
+// ─── Publisher Scanner Tests ──────────────────────────────────────────
+
+describe('scanPublisher', () => {
+  it('returns data for a real npm package', async () => {
+    const result = await scanPublisher('express');
+    expect(result.info.existsOnNpm).toBe(true);
+    expect(result.info.packageName).toBe('express');
+    expect(result.info.weeklyDownloads).toBeGreaterThan(0);
+    expect(result.info.maintainers.length).toBeGreaterThan(0);
+    expect(result.info.hasRepository).toBe(true);
+    expect(result.score).toBeGreaterThan(50);
+  }, 15_000);
+
+  it('handles non-existent npm package', async () => {
+    const result = await scanPublisher('this-package-definitely-does-not-exist-xyz999');
+    expect(result.info.existsOnNpm).toBe(false);
+    expect(result.findings.some(f => f.title.includes('not found'))).toBe(true);
+    expect(result.score).toBe(20);
+  }, 15_000);
+
+  it('returns neutral score for local paths', async () => {
+    const result = await scanPublisher('/tmp/local-package');
+    expect(result.score).toBe(50);
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it('returns neutral score for unknown packages', async () => {
+    const result = await scanPublisher('unknown');
+    expect(result.score).toBe(50);
+  });
+
+  it('scan report includes publisher data', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: 'express', version: '1.0.0' }),
+      'src/index.ts': 'export function handler() { return "ok"; }\n',
+    });
+
+    const report = await scan({ packagePath: dir, skipDependencies: true });
+    expect(report.publisher).toBeDefined();
+    expect(report.publisher!.info.packageName).toBe('express');
+    expect(report.trustScore.breakdown.publisher).toBeGreaterThan(0);
+  }, 15_000);
 });

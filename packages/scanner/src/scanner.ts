@@ -5,6 +5,7 @@
 import { scanDependencies, type DependencyScanResult } from './dependency-scanner.js';
 import { scanCodePatterns, type PatternScanResult } from './pattern-scanner.js';
 import { scanPermissions, type PermissionScanResult } from './permission-scanner.js';
+import { scanPublisher, type PublisherScanResult } from './publisher-scanner.js';
 import { computeTrustScore, type ScoreBreakdown } from './trust-score.js';
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -59,6 +60,8 @@ export interface ScanReport {
   patterns: PatternScanResult;
   /** Permission scan results */
   permissions: PermissionScanResult;
+  /** Publisher identity results */
+  publisher?: PublisherScanResult;
   /** Scan duration in ms */
   durationMs: number;
 }
@@ -95,12 +98,13 @@ export async function scan(options: ScanOptions): Promise<ScanReport> {
   }
 
   // Run all sub-scanners
-  const [dependencies, patterns, permissions] = await Promise.all([
+  const [dependencies, patterns, permissions, publisher] = await Promise.all([
     skipDependencies
       ? { vulnerabilities: [], totalDependencies: 0, findings: [] as Finding[] }
       : scanDependencies(packagePath),
     scanCodePatterns(packagePath, extensions),
     scanPermissions(packagePath, extensions),
+    scanPublisher(packageName),
   ]);
 
   // Aggregate findings
@@ -108,10 +112,11 @@ export async function scan(options: ScanOptions): Promise<ScanReport> {
     ...dependencies.findings,
     ...patterns.findings,
     ...permissions.findings,
+    ...publisher.findings,
   ];
 
   // Compute trust score
-  const breakdown = computeTrustScore(findings, dependencies, patterns, permissions);
+  const breakdown = computeTrustScore(findings, dependencies, patterns, permissions, publisher);
   const overall = Math.round(
     breakdown.dependencies * 0.25 +
     breakdown.codePatterns * 0.30 +
@@ -137,6 +142,7 @@ export async function scan(options: ScanOptions): Promise<ScanReport> {
     dependencies,
     patterns,
     permissions,
+    publisher,
     durationMs: Date.now() - startTime,
   };
 }

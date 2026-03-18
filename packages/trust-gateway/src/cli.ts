@@ -11,6 +11,7 @@
 import { readFile } from 'node:fs/promises';
 import { loadConfig, validateConfig } from './config.js';
 import { TrustGateway } from './gateway.js';
+import { TrustGatewayProxy } from './proxy.js';
 import { parse as parseYaml } from 'yaml';
 
 const args = process.argv.slice(2);
@@ -81,12 +82,26 @@ if (args[0] === 'validate') {
       }
     }
 
-    console.log(`\n  Gateway ready. Trust enforcement active.\n`);
+    // Start HTTP proxy
+    const proxy = new TrustGatewayProxy({ config, trustStore: gateway.getTrustStore() });
+    const { port } = await proxy.start();
 
-    // In a full implementation, this would start the HTTP proxy server.
-    // For now, the gateway is used programmatically via TrustGateway.processRequest()
-    console.log('  Note: HTTP proxy mode coming in Phase 2.5');
-    console.log('  Use TrustGateway class programmatically for now.');
+    console.log(`\n  🚀 HTTP proxy listening on http://localhost:${port}`);
+    console.log('  Endpoints:');
+    console.log(`    GET  /sse?server=<name>   SSE stream`);
+    console.log(`    POST /message?server=<name>  JSON-RPC relay`);
+    console.log(`    GET  /health              Health check`);
+    console.log(`    GET  /stats               Gateway stats`);
+    console.log();
+
+    // Graceful shutdown
+    const shutdown = async () => {
+      console.log('\n  Shutting down...');
+      await proxy.stop();
+      process.exit(0);
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
   } catch (err) {
     console.error(`Error: ${(err as Error).message}`);
     process.exit(1);
@@ -95,7 +110,7 @@ if (args[0] === 'validate') {
   console.log('🛡️  Sentinel Trust Gateway');
   console.log();
   console.log('Usage:');
-  console.log('  sentinel-gateway --config <sentinel.yaml>   Start the gateway');
+  console.log('  sentinel-gateway --config <sentinel.yaml>   Start the HTTP proxy');
   console.log('  sentinel-gateway validate <config.yaml>     Validate config');
   console.log();
   console.log('Example sentinel.yaml:');

@@ -5,13 +5,14 @@
  * - Dependencies (25%): vulnerability count and severity
  * - Code-Patterns (30%): dangerous patterns and obfuscation
  * - Permissions (25%): scope of system access
- * - Publisher (20%): identity verification (placeholder for Phase 3)
+ * - Publisher (20%): npm registry identity verification
  */
 
 import type { Finding } from './scanner.js';
 import type { DependencyScanResult } from './dependency-scanner.js';
 import type { PatternScanResult } from './pattern-scanner.js';
 import type { PermissionScanResult } from './permission-scanner.js';
+import type { PublisherScanResult } from './publisher-scanner.js';
 
 export interface ScoreBreakdown {
   /** 0-100 score for dependency health */
@@ -20,7 +21,7 @@ export interface ScoreBreakdown {
   codePatterns: number;
   /** 0-100 score for permission scope */
   permissions: number;
-  /** 0-100 score for publisher identity (Phase 3 — default 50) */
+  /** 0-100 score for publisher identity */
   publisher: number;
 }
 
@@ -36,13 +37,14 @@ export function computeTrustScore(
   findings: Finding[],
   deps: DependencyScanResult,
   patterns: PatternScanResult,
-  permissions: PermissionScanResult
+  permissions: PermissionScanResult,
+  publisher?: PublisherScanResult
 ): ScoreBreakdown {
   return {
     dependencies: computeDependencyScore(deps),
     codePatterns: computePatternScore(patterns),
     permissions: computePermissionScore(permissions),
-    publisher: 50, // Phase 3: npm registry identity check
+    publisher: publisher?.score ?? 50,
   };
 }
 
