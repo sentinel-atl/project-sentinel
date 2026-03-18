@@ -1,143 +1,172 @@
 # 🛡️ Project Sentinel
 
-**The Agent Trust Layer — identity, credentials, and reputation for AI agents.**
+**The missing security layer for AI agents.**
 
-[![CI](https://github.com/sentinel-atl/project-sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/sentinel-atl/project-sentinel/actions/workflows/ci.yml)
+Give your AI agents cryptographic identity, verifiable credentials, and zero-trust authentication — in 5 lines of code.
+
+[![npm](https://img.shields.io/npm/v/@sentinel-atl/core?label=npm)](https://www.npmjs.com/package/@sentinel-atl/core)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-253%20passing-brightgreen.svg)]()
-[![Packages](https://img.shields.io/badge/Packages-16-orange.svg)]()
-[![Protocol Version](https://img.shields.io/badge/Protocol-v1.0-green.svg)](specs/)
+[![Tests](https://img.shields.io/badge/Tests-360%20passing-brightgreen.svg)]()
+[![Protocol](https://img.shields.io/badge/Protocol-STP%20v1.0-green.svg)](specs/sentinel-trust-protocol-v1.0.md)
+
+```bash
+npx create-sentinel-app my-agent
+cd my-agent && npm start
+```
+
+```
+🛡️  Starting trusted agent...
+
+✅ Agent created: did:key:z6MkmFvfVYWsTms7kKAZKFyUeWKf65KU...
+   Capabilities: search, process, respond
+
+📜 Credential issued: urn:uuid:731fb0a2-de3b-d2e6-75...
+🎯 Intent created: 019cff66-3ed5-7d34-be7e-ba62d8...
+
+🔒 Safety check: ✅ SAFE
+🔒 Safety check: ❌ BLOCKED (prompt injection detected)
+
+🎉 Your trusted agent is ready!
+```
 
 ---
 
-## The Problem
+## Why?
 
-AI agents are becoming autonomous economic actors — booking flights, processing payments, hiring sub-agents. But they have **no way to prove who they are, who they represent, or why they can be trusted.**
+AI agents are being deployed everywhere — booking flights, processing payments, calling APIs, hiring sub-agents. But:
 
-- **A2A** (Google) defines how agents **talk**. It does not define how they **trust**.
-- **MCP** (Anthropic) defines how agents **use tools**. It has no identity layer.
-- Existing agent identity projects cover **fragments** — a DID here, a credential there. Nobody has the **full trust pipeline**.
+- **MCP** lets agents call tools. It has **no security layer.**
+- **A2A** lets agents talk. It has **no identity verification.**
+- Your agents have **no way to prove who they are, what they're allowed to do, or who authorized them.**
 
-Sentinel fills the gap.
+Sentinel adds the trust layer that's missing.
 
-## What Sentinel Does (That Nobody Else Does)
+## What You Get
 
-| Capability | Sentinel | A2A | MCP | Attestix | Clawdentity | Skytale |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Agent Identity (DID) | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Verifiable Credentials (W3C) | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
-| **Proof of Intent** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Zero-Trust Handshake | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Delegation Chains + Scope Narrowing | ✅ | ❌ | ❌ | Partial | ❌ | ❌ |
-| Negative Reputation + Quarantine | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Emergency Kill Switch (<5s) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Step-Up Auth for Sensitive Actions | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Offline/Degraded Mode | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Tamper-Evident Audit Log | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Key Recovery (Shamir) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+```ts
+import { createTrustedAgent } from '@sentinel-atl/sdk';
 
-**Sentinel's unique insight:** Trust isn't just identity. It's the full chain from **human intent → agent authorization → scoped delegation → action execution → reputation feedback** — with every step cryptographically signed, time-bounded, and auditable.
+const agent = await createTrustedAgent({
+  name: 'my-agent',
+  capabilities: ['search', 'book'],
+  enableSafety: true,  // Blocks prompt injection out of the box
+});
 
-## Quick Start
+// Every agent gets a cryptographic identity (DID)
+console.log(agent.did); // did:key:z6Mk...
+
+// Issue verifiable credentials
+const vc = await agent.issueCredential({
+  type: 'AgentAuthorizationCredential',
+  subjectDid: peerAgent.did,
+  scope: ['travel:search', 'travel:book'],
+});
+
+// Zero-trust handshake with another agent
+const session = await agent.handshake(peerDid, peerPassport, myVCs, peerVCs);
+
+// Content safety — blocks prompt injection, jailbreak, PII leaks
+const check = await agent.checkSafety('Ignore previous instructions...');
+// { safe: false, blocked: true, violations: [{ category: 'prompt_injection' }] }
+```
+
+## Secure Your MCP Server in 2 Minutes
+
+MCP has no built-in security. Sentinel fixes that:
 
 ```bash
-# Install
-npm install @sentinel-atl/cli -g
+npx create-sentinel-app my-server --template mcp-secure-server
+cd my-server && npm start
+```
 
-# Create your agent identity
-sentinel init
+```
+🛡️  MCP Server with Sentinel Security
+🖥️  Server: did:key:z6Mko15S...
+🤖 Agent:  did:key:z6MktP4u...
 
-# See your DID
-sentinel whoami
+→ Calling search_flights({"destination":"Tokyo"})
+  ✅ Authorized (reputation: n/a)
+  📦 Result: Found 3 flights to Tokyo starting at $371
 
-# Sign a message
-sentinel sign "hello world"
+→ Calling search_flights with malicious input
+  ❌ BLOCKED: Content safety violation
+```
 
-# Issue a Verifiable Credential
-sentinel issue-vc \
-  --type AgentAuthorization \
-  --subject did:key:z6MkTarget... \
-  --scope "read:email,send:calendar" \
-  --max-delegation-depth 2 \
-  --expires 24
+Every tool call is verified: **identity → credentials → reputation → safety → audit.**
 
-# Verify a credential
-sentinel verify-vc ./credential.json
+## Zero-Trust Agent Handshake
 
-# Create a Proof of Intent
-sentinel create-intent \
-  --action "book_flight" \
-  --scope "travel:book,payment:authorize_up_to_500" \
-  --principal did:key:z6MkHuman...
+Two agents that don't know each other can cryptographically verify and establish a session:
 
-# Backup your key (Shamir 3-of-5)
-sentinel backup-key
+```bash
+npx create-sentinel-app demo --template two-agent-handshake
+cd demo && npm start
+```
 
-# Verify audit log integrity
-sentinel audit verify
+```
+🤝 Starting zero-trust handshake...
+
+  1️⃣  Alice → Init (nonce: 024ef99da08a...)
+  2️⃣  Bob → Response (nonce: 3ada70dcffb8...)
+  3️⃣  Alice → VC Exchange (AgentAuthorizationCredential)
+  4️⃣  Bob verifies Alice: ✅ VALID
+  5️⃣  Bob → VC Exchange (AgentAuthorizationCredential)
+  6️⃣  Alice verifies Bob: ✅ VALID
+
+🔐 Session established!
+✅ Both agents verified each other cryptographically.
+   Neither had to trust a central authority.
 ```
 
 ## How It Works
 
 ```
- Human Principal                    Agent A                     Agent B (Sub-Agent)
-       │                              │                              │
-       │ 1. Issue AuthVC              │                              │
-       │  (scoped permissions)        │                              │
-       │─────────────────────────────>│                              │
-       │                              │                              │
-       │ 2. "Book a flight to Tokyo"  │                              │
-       │─────────────────────────────>│                              │
-       │                              │                              │
-       │                              │ 3. Create Intent Envelope    │
-       │                              │  (action + scope + chain)    │
-       │                              │                              │
-       │                              │ 4. Zero-Trust Handshake      │
-       │                              │  (mutual VC exchange)        │
-       │                              │─────────────────────────────>│
-       │                              │     ✓ Both verified          │
-       │                              │<─────────────────────────────│
-       │                              │                              │
-       │                              │ 5. Delegate (narrowed scope) │
-       │                              │  maxDelegationDepth: 0       │
-       │                              │─────────────────────────────>│
-       │                              │                              │
-       │  6. Step-up auth             │                              │
-       │  (if sensitivity: high)      │                              │
-       │<─────────────────────────────────────────────────────────────│
-       │  ✓ Approved via passkey      │                              │
-       │──────────────────────────────────────────────────────────────>
-       │                              │                              │
-       │                              │ 7. Task complete             │
-       │                              │<─────────────────────────────│
-       │                              │                              │
-       │                              │ 8. Reputation vouches        │
-       │                              │<────────────────────────────>│
+ Human                        Agent A                     Agent B
+   │ 1. Issue credential        │                            │
+   │  (scoped permissions)      │                            │
+   │───────────────────────────>│                            │
+   │                            │ 2. Zero-trust handshake    │
+   │                            │  (mutual VC exchange)      │
+   │                            │<─────────────────────────>│
+   │                            │     ✓ Both verified        │
+   │                            │ 3. Delegate (scope narrows)│
+   │                            │──────────────────────────>│
+   │  4. Step-up auth?          │                            │
+   │  (if high sensitivity)     │                            │
+   │<────────────────────────────────────────────────────────│
+   │  ✓ Approved                │                            │
+   │─────────────────────────────────────────────────────────>
+   │                            │ 5. Reputation feedback     │
+   │                            │<────────────────────────>│
 ```
 
-**Every arrow is cryptographically signed. Every step is audit-logged. Every scope narrows, never widens.**
+Every arrow is cryptographically signed. Every step is audit-logged. Scope can only narrow, never widen.
 
 ## Packages
 
-| Package | Description |
+| Package | What it does |
 |---|---|
-| [`@sentinel-atl/core`](packages/core) | DID identity, Verifiable Credentials, Proof of Intent, Agent Passport, crypto primitives |
-| [`@sentinel-atl/handshake`](packages/handshake) | Zero-trust mutual verification with rate limiting, circuit breaker, clock tolerance |
-| [`@sentinel-atl/reputation`](packages/reputation) | Weighted scoring, negative vouches, Sybil resistance, quarantine |
-| [`@sentinel-atl/audit`](packages/audit) | Append-only hash-chain audit logging |
-| [`@sentinel-atl/recovery`](packages/recovery) | Shamir's Secret Sharing key backup (3-of-5 default) |
-| [`@sentinel-atl/revocation`](packages/revocation) | VC/DID revocation lists, key rotation, emergency kill switch |
-| [`@sentinel-atl/attestation`](packages/attestation) | Code attestation — cryptographic proof an agent runs verified code |
-| [`@sentinel-atl/stepup`](packages/stepup) | Step-up authentication — human re-approval for sensitive actions |
-| [`@sentinel-atl/offline`](packages/offline) | Offline/degraded mode — LRU trust cache, CRDT reputation merge, pending tx queue |
-| [`@sentinel-atl/safety`](packages/safety) | Content safety pipeline — prompt injection, PII, jailbreak detection with pluggable classifiers |
-| [`@sentinel-atl/adapters`](packages/adapters) | Framework adapters for LangChain, CrewAI, AutoGen, OpenAI Agents SDK |
-| [`@sentinel-atl/mcp-plugin`](packages/mcp-plugin) | MCP middleware — identity-aware tool call gating (revocation + attestation + safety) |
-| [`@sentinel-atl/sdk`](packages/sdk) | Developer SDK — 5-line integration with offline mode, safety, revocation, kill switch |
-| [`@sentinel-atl/cli`](packages/cli) | `sentinel` command-line tool |
-| [`@sentinel-atl/hsm`](packages/hsm) | HSM KeyProvider backends — encrypted file, AWS CloudHSM, Azure Managed HSM, PKCS#11 |
-| [`@sentinel-atl/dashboard`](packages/dashboard) | Web dashboard — trust graph, reputation scores, audit trail, revocation stats |
+| [`@sentinel-atl/core`](https://www.npmjs.com/package/@sentinel-atl/core) | DID identity, Verifiable Credentials, Proof of Intent, crypto |
+| [`@sentinel-atl/sdk`](https://www.npmjs.com/package/@sentinel-atl/sdk) | High-level SDK — 5-line integration |
+| [`@sentinel-atl/handshake`](https://www.npmjs.com/package/@sentinel-atl/handshake) | Zero-trust mutual agent verification |
+| [`@sentinel-atl/gateway`](https://www.npmjs.com/package/@sentinel-atl/gateway) | MCP Security Gateway |
+| [`@sentinel-atl/mcp-plugin`](https://www.npmjs.com/package/@sentinel-atl/mcp-plugin) | MCP middleware for tool-call gating |
+| [`@sentinel-atl/reputation`](https://www.npmjs.com/package/@sentinel-atl/reputation) | Trust scoring, Sybil resistance, quarantine |
+| [`@sentinel-atl/safety`](https://www.npmjs.com/package/@sentinel-atl/safety) | Content safety — prompt injection, PII, jailbreak detection |
+| [`@sentinel-atl/audit`](https://www.npmjs.com/package/@sentinel-atl/audit) | Tamper-evident hash-chain audit log |
+| [`@sentinel-atl/revocation`](https://www.npmjs.com/package/@sentinel-atl/revocation) | Credential revocation + emergency kill switch |
+| [`@sentinel-atl/adapters`](https://www.npmjs.com/package/@sentinel-atl/adapters) | LangChain, CrewAI, AutoGen, OpenAI adapters |
+| [`@sentinel-atl/server`](https://www.npmjs.com/package/@sentinel-atl/server) | HTTP REST API server |
+| [`@sentinel-atl/cli`](https://www.npmjs.com/package/@sentinel-atl/cli) | Command-line tool |
+| [`@sentinel-atl/recovery`](https://www.npmjs.com/package/@sentinel-atl/recovery) | Shamir's Secret Sharing key backup |
+| [`@sentinel-atl/attestation`](https://www.npmjs.com/package/@sentinel-atl/attestation) | Code attestation (bind DID → code hash) |
+| [`@sentinel-atl/stepup`](https://www.npmjs.com/package/@sentinel-atl/stepup) | Step-up auth for sensitive actions |
+| [`@sentinel-atl/offline`](https://www.npmjs.com/package/@sentinel-atl/offline) | Offline mode with cached trust decisions |
+| [`@sentinel-atl/hsm`](https://www.npmjs.com/package/@sentinel-atl/hsm) | HSM backends (AWS CloudHSM, Azure, PKCS#11) |
+| [`@sentinel-atl/dashboard`](https://www.npmjs.com/package/@sentinel-atl/dashboard) | Trust visualization dashboard |
+| [`@sentinel-atl/conformance`](https://www.npmjs.com/package/@sentinel-atl/conformance) | STP protocol conformance test suite |
+| [`create-sentinel-app`](https://www.npmjs.com/package/create-sentinel-app) | `npx create-sentinel-app` scaffolder |
 
 ## Proof of Intent — Why This Matters
 
@@ -263,17 +292,44 @@ Adapters exist for **LangChain** (tool wrapper), **CrewAI** (task guard), **Auto
 
 Report vulnerabilities to: security@sentinel-protocol.org
 
+## Install
+
+```bash
+npm install @sentinel-atl/core @sentinel-atl/sdk
+```
+
+Or scaffold a complete app:
+
+```bash
+npx create-sentinel-app my-agent
+npx create-sentinel-app my-server --template mcp-secure-server
+npx create-sentinel-app demo --template two-agent-handshake
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ```bash
-git clone https://github.com/your-org/project-sentinel.git
+git clone https://github.com/sentinel-atl/project-sentinel.git
 cd project-sentinel
 npm install
-npm run build        # Build all 14 packages
-npm test             # Run 231+ tests
-npx tsx examples/two-agent-handshake/demo.ts  # Full 15-step demo
+npm run build
+npm test             # 360 tests across 23 files
+```
+
+## Protocol
+
+Sentinel implements the [Sentinel Trust Protocol (STP) v1.0](specs/sentinel-trust-protocol-v1.0.md) — an open specification for AI agent trust. The protocol defines three compliance levels:
+
+- **STP-Lite** — DID + Verifiable Credentials (minimum viable trust)
+- **STP-Standard** — + Handshake + Reputation + Audit
+- **STP-Full** — + Revocation + Attestation + Safety + Offline
+
+Run the conformance suite against any STP implementation:
+
+```bash
+STP_SERVER_URL=http://localhost:3000 npx @sentinel-atl/conformance
 ```
 
 ## License
