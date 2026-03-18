@@ -1,0 +1,60 @@
+{
+  "name": "sentinel-trust-scanner",
+  "displayName": "Sentinel MCP Trust Scanner",
+  "description": "Scan MCP server packages for security vulnerabilities, dangerous code patterns, and publisher identity. Get trust scores directly in VS Code.",
+  "version": "0.1.0",
+  "publisher": "sentinel-atl",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinel-atl/project-sentinel"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "mcp",
+    "ai",
+    "security",
+    "trust",
+    "scanner",
+    "model-context-protocol"
+  ],
+  "icon": "icon.png",
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "sentinel.scanPackage",
+        "title": "Sentinel: Scan MCP Package"
+      },
+      {
+        "command": "sentinel.scanWorkspace",
+        "title": "Sentinel: Scan Current Workspace"
+      },
+      {
+        "command": "sentinel.validateGatewayConfig",
+        "title": "Sentinel: Validate Gateway Config"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.7.0",
+    "@vscode/vsce": "^3.0.0"
+  },
+  "dependencies": {
+    "@sentinel-atl/scanner": "^0.3.0"
+  }
+}

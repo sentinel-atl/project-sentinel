@@ -1,0 +1,120 @@
+name: 'Sentinel MCP Trust Scanner'
+description: 'Scan MCP server packages for security vulnerabilities, dangerous code patterns, and publisher identity. Get a trust score (0-100) in your CI pipeline.'
+author: 'sentinel-atl'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  package:
+    description: 'Package name to scan (e.g., "some-mcp-server")'
+    required: true
+  min-score:
+    description: 'Minimum trust score (0-100). Fails the check if score is below this.'
+    required: false
+    default: '0'
+  min-grade:
+    description: 'Minimum grade (A-F). Fails the check if grade is below this.'
+    required: false
+    default: 'F'
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
+
+outputs:
+  score:
+    description: 'Trust score (0-100)'
+  grade:
+    description: 'Trust grade (A-F)'
+  report:
+    description: 'Full JSON scan report path'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install Sentinel Scanner
+      shell: bash
+      run: npm install -g @sentinel-atl/scanner@latest
+
+    - name: Run Trust Scan
+      id: scan
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        PACKAGE="${{ inputs.package }}"
+        MIN_SCORE="${{ inputs.min-score }}"
+        MIN_GRADE="${{ inputs.min-grade }}"
+
+        echo "🔍 Scanning $PACKAGE..."
+
+        # Run scan and capture output
+        node -e "
+          const { scan } = require('@sentinel-atl/scanner');
+          (async () => {
+            try {
+              const report = await scan({ packageName: '$PACKAGE' });
+              const score = report.trustScore.overall;
+              const grade = report.trustScore.grade;
+              const findings = report.findings || [];
+
+              console.log('');
+              console.log('📊 Trust Score: ' + score + '/100 (Grade: ' + grade + ')');
+              console.log('');
+
+              const critical = findings.filter(f => f.severity === 'critical').length;
+              const high = findings.filter(f => f.severity === 'high').length;
+              const medium = findings.filter(f => f.severity === 'medium').length;
+              const low = findings.filter(f => f.severity === 'low').length;
+
+              if (critical) console.log('  🔴 Critical: ' + critical);
+              if (high) console.log('  🟠 High: ' + high);
+              if (medium) console.log('  🟡 Medium: ' + medium);
+              if (low) console.log('  🟢 Low: ' + low);
+              if (!findings.length) console.log('  ✅ No findings');
+
+              // Write outputs
+              const fs = require('fs');
+              const outputFile = process.env.GITHUB_OUTPUT;
+              fs.appendFileSync(outputFile, 'score=' + score + '\n');
+              fs.appendFileSync(outputFile, 'grade=' + grade + '\n');
+
+              // Write full report
+              const reportPath = 'sentinel-report.json';
+              fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+              fs.appendFileSync(outputFile, 'report=' + reportPath + '\n');
+
+              // Write step summary
+              const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+              let summary = '## 🛡️ Sentinel Trust Scan\n\n';
+              summary += '| Metric | Value |\n|--------|-------|\n';
+              summary += '| Package | \`$PACKAGE\` |\n';
+              summary += '| Trust Score | **' + score + '/100** |\n';
+              summary += '| Grade | **' + grade + '** |\n';
+              summary += '| Findings | ' + critical + ' critical, ' + high + ' high, ' + medium + ' medium, ' + low + ' low |\n';
+              fs.appendFileSync(summaryFile, summary);
+
+              // Check thresholds
+              const gradeOrder = { A: 5, B: 4, C: 3, D: 2, F: 1 };
+              if (score < parseInt('$MIN_SCORE')) {
+                console.error('\n❌ Score ' + score + ' is below minimum $MIN_SCORE');
+                process.exit(1);
+              }
+              if (gradeOrder[grade] < gradeOrder['$MIN_GRADE']) {
+                console.error('\n❌ Grade ' + grade + ' is below minimum $MIN_GRADE');
+                process.exit(1);
+              }
+
+              console.log('\n✅ Trust check passed');
+            } catch (err) {
+              console.error('❌ Scan failed:', err.message);
+              process.exit(1);
+            }
+          })();
+        "

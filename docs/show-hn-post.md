@@ -84,8 +84,15 @@ Neither agent had to trust a central authority.
 
 ## What's inside
 
-20 packages covering the full trust pipeline:
+29 packages covering the full trust pipeline:
 
+**Agent Notary (scan → certify → enforce):**
+- **Scanner**: `npx @sentinel-atl/scanner scan <package>` — dependency audit, code pattern detection, permission analysis, publisher identity verification. Outputs a trust score (0-100, grade A-F).
+- **Trust Certificates**: Ed25519-signed attestations of scan results (like SSL certs for AI agents).
+- **Trust Gateway**: YAML-configured reverse proxy that enforces trust policies on MCP requests.
+- **Trust Registry**: REST API for publishing, querying, and badging trust scores.
+
+**Agent Trust Layer (identity + verification):**
 - **Identity**: DID (did:key), W3C Verifiable Credentials, Proof of Intent
 - **Verification**: Zero-trust handshake, VC exchange, mutual authentication
 - **Security**: Content safety (prompt injection/jailbreak/PII), emergency kill switch, key revocation
@@ -94,12 +101,12 @@ Neither agent had to trust a central authority.
 - **Integration**: LangChain, CrewAI, AutoGen, OpenAI adapters, MCP gateway
 - **Standards**: [Sentinel Trust Protocol v1.0](https://github.com/sentinel-atl/project-sentinel/blob/main/specs/sentinel-trust-protocol-v1.0.md) with conformance suite
 
-Built with Ed25519 cryptography. 360 tests. TypeScript. Apache 2.0.
+Built with Ed25519 cryptography. 502 tests. TypeScript. Apache 2.0.
 
-## Install
+## Try it right now
 
 ```bash
-npm install @sentinel-atl/core @sentinel-atl/sdk
+npx @sentinel-atl/scanner scan express
 ```
 
 ## Links

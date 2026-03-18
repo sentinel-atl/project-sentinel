@@ -7,7 +7,7 @@ Give your AI agents cryptographic identity, verifiable credentials, and zero-tru
 [![npm](https://img.shields.io/npm/v/@sentinel-atl/core?label=npm)](https://www.npmjs.com/package/@sentinel-atl/core)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-360%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-502%20passing-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg)](python/)
 [![Protocol](https://img.shields.io/badge/Protocol-STP%20v1.0-green.svg)](specs/sentinel-trust-protocol-v1.0.md)
 
@@ -95,6 +95,80 @@ cd my-server && npm start
 ```
 
 Every tool call is verified: **identity → credentials → reputation → safety → audit.**
+
+## 🔍 Agent Notary — npm audit for AI Agents
+
+Sentinel includes a complete trust verification pipeline for MCP servers: **scan → certify → enforce.**
+
+### 1. Scan any MCP server
+
+```bash
+npx @sentinel-atl/scanner scan some-mcp-server
+```
+
+```
+📊 Trust Score: 82/100 (Grade: B)
+
+  Dependencies:  ✅ No known vulnerabilities
+  Code Patterns: ⚠️  1 high (child_process usage)
+  Permissions:   ✅ filesystem, network
+  Publisher:     ✅ Verified on npm (2 years, 50K downloads/week)
+```
+
+### 2. Get a Sentinel Trust Certificate (STC)
+
+```ts
+import { scan, issueSTC } from '@sentinel-atl/scanner';
+
+const report = await scan({ packageName: 'some-mcp-server' });
+const stc = await issueSTC({ issuer, subject, findings: report.findings });
+```
+
+### 3. Publish to the Trust Registry
+
+```bash
+curl -X POST http://registry.example.com/api/v1/certificates \
+  -H "Content-Type: application/json" -d @stc.json
+```
+
+Add a trust badge to your README:
+```
+![Trust Score](http://registry.example.com/api/v1/packages/my-server/badge)
+```
+
+### 4. Enforce with the Trust Gateway
+
+```yaml
+# sentinel.yaml
+gateway:
+  port: 3100
+  mode: strict
+  minTrustScore: 70
+
+servers:
+  - name: filesystem
+    upstream: stdio://node ./fs-server.js
+    trust:
+      minScore: 75
+      minGrade: B
+      requireCertificate: true
+      maxFindingsCritical: 0
+    blockedTools: [delete_file]
+```
+
+```bash
+npx sentinel-gateway --config sentinel.yaml
+```
+
+The gateway sits between your client and MCP servers, enforcing trust policies on every request.
+
+| Package | What it does |
+|---------|-------------|
+| [`@sentinel-atl/scanner`](https://www.npmjs.com/package/@sentinel-atl/scanner) | Security scanner — dependencies, code patterns, permissions, publisher |
+| [`@sentinel-atl/registry`](https://www.npmjs.com/package/@sentinel-atl/registry) | Trust Registry API — publish, query, and badge STCs |
+| [`@sentinel-atl/trust-gateway`](https://www.npmjs.com/package/@sentinel-atl/trust-gateway) | YAML-configured trust enforcement proxy |
+| [`@sentinel-atl/hardening`](https://www.npmjs.com/package/@sentinel-atl/hardening) | Production middleware — auth, CORS, TLS, rate limiting, security headers |
+| [`@sentinel-atl/store`](https://www.npmjs.com/package/@sentinel-atl/store) | Persistence — Redis, PostgreSQL, SQLite, in-memory |
 
 ## Zero-Trust Agent Handshake
 
@@ -388,7 +462,7 @@ git clone https://github.com/sentinel-atl/project-sentinel.git
 cd project-sentinel
 npm install
 npm run build
-npm test             # 360 tests across 23 files (TypeScript)
+npm test             # 502 tests across 29 files (TypeScript)
 cd python && pip install -e ".[dev]" && pytest  # 15 tests (Python)
 ```
 
