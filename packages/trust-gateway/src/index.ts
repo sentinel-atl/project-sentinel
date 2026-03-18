@@ -28,6 +28,7 @@ export {
 export {
   TrustStore,
   type StoredCertificate,
+  type TrustStoreOptions,
 } from './trust-store.js';
 
 export {

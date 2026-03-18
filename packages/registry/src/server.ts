@@ -23,6 +23,7 @@ import {
   authenticate, hasScope, sendUnauthorized, sendForbidden,
   applyCors, defaultCorsConfig,
   createSecureServer,
+  applySecurityHeaders,
   type AuthConfig, type CorsConfig, type TlsConfig,
 } from '@sentinel-atl/hardening';
 import type { SentinelTrustCertificate } from '@sentinel-atl/scanner';
@@ -70,6 +71,9 @@ export class RegistryServer {
   }
 
   async start(): Promise<{ port: number }> {
+    // Load persisted certificates from backend (no-op if in-memory only)
+    await this.store.load();
+
     return new Promise((resolve, reject) => {
       this.server = createSecureServer(
         (req, res) => this.handleRequest(req, res),
@@ -105,6 +109,9 @@ export class RegistryServer {
 
     // CORS (configurable origins)
     if (applyCors(req, res, this.corsConfig)) return; // preflight handled
+
+    // Security headers
+    applySecurityHeaders(res, { hsts: this.isTLS() });
 
     // Authentication
     const authResult = authenticate(req, this.authConfig);
@@ -169,6 +176,12 @@ export class RegistryServer {
   // ─── Handlers ──────────────────────────────────────────────────
 
   private async handleRegister(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    // Content-Type enforcement
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes('application/json')) {
+      return this.sendJson(res, 415, { error: 'Content-Type must be application/json' });
+    }
+
     const body = await readBody(req);
     let certificate: SentinelTrustCertificate;
 
@@ -178,8 +191,10 @@ export class RegistryServer {
       return this.sendJson(res, 400, { error: 'Invalid JSON' });
     }
 
-    if (!certificate.id || !certificate.type || certificate.type !== 'SentinelTrustCertificate') {
-      return this.sendJson(res, 400, { error: 'Invalid STC: missing id or type' });
+    // Comprehensive STC validation
+    const errors = validateSTC(certificate);
+    if (errors.length > 0) {
+      return this.sendJson(res, 400, { error: 'Invalid STC', details: errors });
     }
 
     // Check for duplicates
@@ -207,8 +222,8 @@ export class RegistryServer {
     this.sendJson(res, 200, this.formatEntry(entry));
   }
 
-  private handleDelete(id: string, res: ServerResponse): void {
-    const removed = this.store.remove(id);
+  private async handleDelete(id: string, res: ServerResponse): Promise<void> {
+    const removed = await this.store.remove(id);
     if (!removed) {
       return this.sendJson(res, 404, { error: 'Certificate not found' });
     }
@@ -216,13 +231,19 @@ export class RegistryServer {
   }
 
   private handleQuery(url: URL, res: ServerResponse): void {
+    const parseIntSafe = (val: string | null): number | undefined => {
+      if (val === null) return undefined;
+      const n = parseInt(val, 10);
+      return Number.isNaN(n) ? undefined : n;
+    };
+
     const q = {
       packageName: url.searchParams.get('package') ?? undefined,
-      minScore: url.searchParams.has('minScore') ? parseInt(url.searchParams.get('minScore')!) : undefined,
+      minScore: parseIntSafe(url.searchParams.get('minScore')),
       minGrade: url.searchParams.get('minGrade') ?? undefined,
       verified: url.searchParams.has('verified') ? url.searchParams.get('verified') === 'true' : undefined,
-      limit: url.searchParams.has('limit') ? parseInt(url.searchParams.get('limit')!) : undefined,
-      offset: url.searchParams.has('offset') ? parseInt(url.searchParams.get('offset')!) : undefined,
+      limit: parseIntSafe(url.searchParams.get('limit')),
+      offset: parseIntSafe(url.searchParams.get('offset')),
     };
 
     const results = this.store.query(q);
@@ -308,6 +329,59 @@ export class RegistryServer {
     res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
   }
+}
+
+// ─── STC Validation ───────────────────────────────────────────────────
+
+function validateSTC(cert: any): string[] {
+  const errors: string[] = [];
+
+  if (!cert || typeof cert !== 'object') {
+    return ['Certificate must be a JSON object'];
+  }
+
+  // Required fields
+  if (!cert.id || typeof cert.id !== 'string') errors.push('Missing or invalid "id" (string)');
+  if (cert.type !== 'SentinelTrustCertificate') errors.push('"type" must be "SentinelTrustCertificate"');
+  if (cert['@context'] !== 'https://sentinel.trust/stc/v1') errors.push('"@context" must be "https://sentinel.trust/stc/v1"');
+
+  // Timestamps
+  if (!cert.issuedAt || typeof cert.issuedAt !== 'string') errors.push('Missing "issuedAt" (ISO date)');
+  if (!cert.expiresAt || typeof cert.expiresAt !== 'string') errors.push('Missing "expiresAt" (ISO date)');
+
+  // Issuer
+  if (!cert.issuer || typeof cert.issuer !== 'object') {
+    errors.push('Missing "issuer" object');
+  } else {
+    if (!cert.issuer.did || typeof cert.issuer.did !== 'string') errors.push('Missing "issuer.did"');
+  }
+
+  // Subject
+  if (!cert.subject || typeof cert.subject !== 'object') {
+    errors.push('Missing "subject" object');
+  } else {
+    if (!cert.subject.packageName || typeof cert.subject.packageName !== 'string') errors.push('Missing "subject.packageName"');
+    if (!cert.subject.packageVersion || typeof cert.subject.packageVersion !== 'string') errors.push('Missing "subject.packageVersion"');
+  }
+
+  // Trust score
+  if (!cert.trustScore || typeof cert.trustScore !== 'object') {
+    errors.push('Missing "trustScore" object');
+  } else {
+    if (typeof cert.trustScore.overall !== 'number' || cert.trustScore.overall < 0 || cert.trustScore.overall > 100) {
+      errors.push('"trustScore.overall" must be a number 0-100');
+    }
+    if (!cert.trustScore.grade || typeof cert.trustScore.grade !== 'string') {
+      errors.push('Missing "trustScore.grade"');
+    }
+  }
+
+  // Proof
+  if (!cert.proof || typeof cert.proof !== 'object') {
+    errors.push('Missing "proof" object');
+  }
+
+  return errors;
 }
 
 // ─── Body Reader ──────────────────────────────────────────────────────

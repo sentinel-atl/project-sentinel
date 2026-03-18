@@ -10,6 +10,7 @@
 
 export {
   CertificateStore,
+  type CertificateStoreOptions,
   type RegistryEntry,
   type RegistryQuery,
   type RegistryStats,

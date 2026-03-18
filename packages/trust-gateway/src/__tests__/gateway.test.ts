@@ -173,7 +173,7 @@ describe('TrustStore', () => {
     const stc = await makeSTCForCleanPackage(kp, identity);
     await store.addCertificate('server', stc);
 
-    expect(store.remove('server')).toBe(true);
+    expect(await store.remove('server')).toBe(true);
     expect(store.getCertificate('server')).toBeUndefined();
   });
 });

@@ -91,7 +91,7 @@ describe('CertificateStore', () => {
     await store.register(stc);
 
     expect(store.count()).toBe(1);
-    const removed = store.remove(stc.id);
+    const removed = await store.remove(stc.id);
     expect(removed).toBe(true);
     expect(store.count()).toBe(0);
     expect(store.get(stc.id)).toBeUndefined();

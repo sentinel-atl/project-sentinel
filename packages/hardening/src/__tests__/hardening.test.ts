@@ -18,6 +18,9 @@ import {
 import {
   rotateIfNeeded, cleanupRotatedFiles,
 } from '../audit-rotation.js';
+import {
+  applySecurityHeaders,
+} from '../security-headers.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -417,5 +420,53 @@ describe('cleanupRotatedFiles', () => {
     await writeFile(logPath + '.4', 'remove');
     const removed = await cleanupRotatedFiles({ logPath, maxFiles: 2 });
     expect(removed).toBe(2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Security Headers
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('applySecurityHeaders', () => {
+  it('sets standard security headers', () => {
+    const res = mockRes();
+    applySecurityHeaders(res);
+    expect(res._headers['x-content-type-options']).toBe('nosniff');
+    expect(res._headers['x-xss-protection']).toBe('0');
+    expect(res._headers['x-frame-options']).toBe('DENY');
+    expect(res._headers['content-security-policy']).toBe("default-src 'none'");
+    expect(res._headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+    expect(res._headers['permissions-policy']).toContain('camera=()');
+  });
+
+  it('does not set HSTS by default', () => {
+    const res = mockRes();
+    applySecurityHeaders(res);
+    expect(res._headers['strict-transport-security']).toBeUndefined();
+  });
+
+  it('sets HSTS when enabled', () => {
+    const res = mockRes();
+    applySecurityHeaders(res, { hsts: true });
+    expect(res._headers['strict-transport-security']).toContain('max-age=31536000');
+    expect(res._headers['strict-transport-security']).toContain('includeSubDomains');
+  });
+
+  it('allows custom HSTS max-age', () => {
+    const res = mockRes();
+    applySecurityHeaders(res, { hsts: true, hstsMaxAge: 86400 });
+    expect(res._headers['strict-transport-security']).toBe('max-age=86400; includeSubDomains');
+  });
+
+  it('allows custom CSP', () => {
+    const res = mockRes();
+    applySecurityHeaders(res, { contentSecurityPolicy: "default-src 'self'" });
+    expect(res._headers['content-security-policy']).toBe("default-src 'self'");
+  });
+
+  it('can disable X-Frame-Options', () => {
+    const res = mockRes();
+    applySecurityHeaders(res, { frameOptions: false });
+    expect(res._headers['x-frame-options']).toBeUndefined();
   });
 });

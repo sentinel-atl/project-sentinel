@@ -70,7 +70,7 @@ export class MemoryStore implements SentinelStore {
   private lists = new Map<string, string[]>();
 
   private isExpired(entry: MemoryEntry): boolean {
-    return entry.expiresAt !== undefined && Date.now() > entry.expiresAt;
+    return entry.expiresAt !== undefined && Date.now() >= entry.expiresAt;
   }
 
   async get(key: string): Promise<string | undefined> {
@@ -85,7 +85,7 @@ export class MemoryStore implements SentinelStore {
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     this.data.set(key, {
       value,
-      expiresAt: ttlSeconds ? Date.now() + ttlSeconds * 1000 : undefined,
+      expiresAt: ttlSeconds != null ? Date.now() + ttlSeconds * 1000 : undefined,
     });
   }
 

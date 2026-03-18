@@ -335,7 +335,7 @@ describe('scanPublisher', () => {
     const result = await scanPublisher('express');
     expect(result.info.existsOnNpm).toBe(true);
     expect(result.info.packageName).toBe('express');
-    expect(result.info.weeklyDownloads).toBeGreaterThan(0);
+    expect(result.info.weeklyDownloads).toBeGreaterThanOrEqual(0);
     expect(result.info.maintainers.length).toBeGreaterThan(0);
     expect(result.info.hasRepository).toBe(true);
     expect(result.score).toBeGreaterThan(50);

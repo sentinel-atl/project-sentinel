@@ -1,11 +1,12 @@
 /**
- * Certificate Store — in-memory storage for Sentinel Trust Certificates.
+ * Certificate Store — persistent storage for Sentinel Trust Certificates.
  *
- * Provides CRUD operations and query capabilities.
- * Designed to be replaceable with a persistent backend (SQLite, Postgres, Cosmos DB).
+ * Backed by SentinelStore interface — supports in-memory, Redis, Postgres, SQLite.
+ * By default uses in-memory Map for zero-config development.
  */
 
 import { verifySTC, type SentinelTrustCertificate, type STCVerifyResult } from '@sentinel-atl/scanner';
+import type { SentinelStore } from '@sentinel-atl/store';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -63,10 +64,57 @@ function gradeAtLeast(actual: string, required: string): boolean {
 
 // ─── Store ───────────────────────────────────────────────────────────
 
+/**
+ * Options for creating a CertificateStore.
+ * If `backend` is provided, certificates are persisted via SentinelStore.
+ * Otherwise, an in-memory Map is used (development only).
+ */
+export interface CertificateStoreOptions {
+  /** Persistent backend — data survives restarts */
+  backend?: SentinelStore;
+  /** Key prefix for the backend (default: 'registry:') */
+  prefix?: string;
+}
+
+const KEY_PREFIX_DEFAULT = 'registry:';
+const CERT_PREFIX = 'cert:';
+const PKG_INDEX_PREFIX = 'pkg:';
+
 export class CertificateStore {
-  private entries = new Map<string, RegistryEntry>();
+  private cache = new Map<string, RegistryEntry>();
   /** Index: packageName → entry IDs (newest first) */
-  private byPackage = new Map<string, string[]>();
+  private pkgIndex = new Map<string, string[]>();
+  private backend?: SentinelStore;
+  private prefix: string;
+  private loaded = false;
+
+  constructor(options?: CertificateStoreOptions) {
+    this.backend = options?.backend;
+    this.prefix = options?.prefix ?? KEY_PREFIX_DEFAULT;
+  }
+
+  /** Load all entries from the backend into the in-memory cache. Call once on startup. */
+  async load(): Promise<void> {
+    if (this.loaded || !this.backend) return;
+    const keys = await this.backend.keys(`${this.prefix}${CERT_PREFIX}`);
+    const values = await this.backend.getMany(keys);
+    for (const [, json] of values) {
+      const entry: RegistryEntry = JSON.parse(json);
+      this.cache.set(entry.id, entry);
+      const existing = this.pkgIndex.get(entry.packageName) ?? [];
+      existing.push(entry.id);
+      this.pkgIndex.set(entry.packageName, existing);
+    }
+    // Sort each package's IDs by registeredAt descending
+    for (const [pkg, ids] of this.pkgIndex) {
+      ids.sort((a, b) => {
+        const ea = this.cache.get(a)!;
+        const eb = this.cache.get(b)!;
+        return eb.registeredAt.localeCompare(ea.registeredAt);
+      });
+    }
+    this.loaded = true;
+  }
 
   /**
    * Register a new certificate. Verifies signature before storing.
@@ -86,12 +134,21 @@ export class CertificateStore {
       issuerDid: certificate.issuer.did,
     };
 
-    this.entries.set(entry.id, entry);
+    this.cache.set(entry.id, entry);
 
     // Update package index
-    const existing = this.byPackage.get(entry.packageName) ?? [];
+    const existing = this.pkgIndex.get(entry.packageName) ?? [];
     existing.unshift(entry.id); // newest first
-    this.byPackage.set(entry.packageName, existing);
+    this.pkgIndex.set(entry.packageName, existing);
+
+    // Persist to backend
+    if (this.backend) {
+      await this.backend.set(`${this.prefix}${CERT_PREFIX}${entry.id}`, JSON.stringify(entry));
+      await this.backend.set(
+        `${this.prefix}${PKG_INDEX_PREFIX}${entry.packageName}`,
+        JSON.stringify(existing)
+      );
+    }
 
     return entry;
   }
@@ -100,31 +157,31 @@ export class CertificateStore {
    * Get a certificate by ID.
    */
   get(id: string): RegistryEntry | undefined {
-    return this.entries.get(id);
+    return this.cache.get(id);
   }
 
   /**
    * Get the latest certificate for a package.
    */
   getLatestForPackage(packageName: string): RegistryEntry | undefined {
-    const ids = this.byPackage.get(packageName);
+    const ids = this.pkgIndex.get(packageName);
     if (!ids || ids.length === 0) return undefined;
-    return this.entries.get(ids[0]);
+    return this.cache.get(ids[0]);
   }
 
   /**
    * Get all certificates for a package.
    */
   getForPackage(packageName: string): RegistryEntry[] {
-    const ids = this.byPackage.get(packageName) ?? [];
-    return ids.map(id => this.entries.get(id)!).filter(Boolean);
+    const ids = this.pkgIndex.get(packageName) ?? [];
+    return ids.map(id => this.cache.get(id)!).filter(Boolean);
   }
 
   /**
    * Query certificates with filters.
    */
   query(q: RegistryQuery): RegistryEntry[] {
-    let results = Array.from(this.entries.values());
+    let results = Array.from(this.cache.values());
 
     if (q.packageName) {
       results = results.filter(e => e.packageName === q.packageName);
@@ -150,17 +207,30 @@ export class CertificateStore {
   /**
    * Remove a certificate by ID.
    */
-  remove(id: string): boolean {
-    const entry = this.entries.get(id);
+  async remove(id: string): Promise<boolean> {
+    const entry = this.cache.get(id);
     if (!entry) return false;
 
-    this.entries.delete(id);
+    this.cache.delete(id);
 
-    const ids = this.byPackage.get(entry.packageName);
+    const ids = this.pkgIndex.get(entry.packageName);
     if (ids) {
       const idx = ids.indexOf(id);
       if (idx !== -1) ids.splice(idx, 1);
-      if (ids.length === 0) this.byPackage.delete(entry.packageName);
+      if (ids.length === 0) this.pkgIndex.delete(entry.packageName);
+    }
+
+    // Persist deletion to backend
+    if (this.backend) {
+      await this.backend.delete(`${this.prefix}${CERT_PREFIX}${id}`);
+      if (ids && ids.length > 0) {
+        await this.backend.set(
+          `${this.prefix}${PKG_INDEX_PREFIX}${entry.packageName}`,
+          JSON.stringify(ids)
+        );
+      } else {
+        await this.backend.delete(`${this.prefix}${PKG_INDEX_PREFIX}${entry.packageName}`);
+      }
     }
 
     return true;
@@ -170,7 +240,7 @@ export class CertificateStore {
    * Get registry statistics.
    */
   getStats(): RegistryStats {
-    const all = Array.from(this.entries.values());
+    const all = Array.from(this.cache.values());
     const gradeDistribution: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, F: 0 };
 
     let totalScore = 0;
@@ -182,7 +252,7 @@ export class CertificateStore {
     return {
       totalCertificates: all.length,
       verifiedCertificates: all.filter(e => e.verified).length,
-      uniquePackages: this.byPackage.size,
+      uniquePackages: this.pkgIndex.size,
       averageScore: all.length > 0 ? Math.round(totalScore / all.length) : 0,
       gradeDistribution,
     };
@@ -192,6 +262,6 @@ export class CertificateStore {
    * Get total count (for pagination).
    */
   count(): number {
-    return this.entries.size;
+    return this.cache.size;
   }
 }

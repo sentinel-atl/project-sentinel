@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@sentinel-atl/scanner": "*",
-    "@sentinel-atl/hardening": "*"
+    "@sentinel-atl/hardening": "*",
+    "@sentinel-atl/store": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

@@ -25,6 +25,7 @@ import {
   createSecureServer,
   setRateLimitHeaders, sendRateLimited,
   RateLimiter as HardenedRateLimiter, parseRateLimit as hardenedParseRateLimit,
+  applySecurityHeaders,
   type AuthConfig, type CorsConfig, type TlsConfig,
 } from '@sentinel-atl/hardening';
 
@@ -153,6 +154,9 @@ export class TrustGatewayProxy {
     // CORS (configurable origins)
     if (applyCors(req, res, this.corsConfig)) return; // preflight handled
 
+    // Security headers
+    applySecurityHeaders(res, { hsts: !!this.tlsConfig?.enabled });
+
     // Authentication
     const authResult = authenticate(req, this.authConfig);
     if (!authResult.authenticated) {
@@ -230,6 +234,14 @@ export class TrustGatewayProxy {
   // ─── Message (JSON-RPC) ──────────────────────────────────────────
 
   private async handleMessage(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    // Content-Type enforcement
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes('application/json')) {
+      res.writeHead(415, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Content-Type must be application/json' }));
+      return;
+    }
+
     const url = new URL(req.url ?? '/', `http://localhost`);
     const serverName = url.searchParams.get('server')
       ?? req.headers['x-server-name'] as string

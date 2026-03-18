@@ -1,9 +1,11 @@
 /**
  * Trust Store — manages loaded Sentinel Trust Certificates for runtime verification.
+ * Supports optional persistent backend via SentinelStore.
  */
 
 import { readFile } from 'node:fs/promises';
 import { verifySTC, type SentinelTrustCertificate } from '@sentinel-atl/scanner';
+import type { SentinelStore } from '@sentinel-atl/store';
 
 export interface StoredCertificate {
   certificate: SentinelTrustCertificate;
@@ -12,8 +14,35 @@ export interface StoredCertificate {
   loadedAt: string;
 }
 
+export interface TrustStoreOptions {
+  /** Persistent backend — data survives restarts */
+  backend?: SentinelStore;
+  /** Key prefix for the backend (default: 'trust-store:') */
+  prefix?: string;
+}
+
+const KEY_PREFIX_DEFAULT = 'trust-store:';
+
 export class TrustStore {
   private certificates = new Map<string, StoredCertificate>();
+  private backend?: SentinelStore;
+  private prefix: string;
+
+  constructor(options?: TrustStoreOptions) {
+    this.backend = options?.backend;
+    this.prefix = options?.prefix ?? KEY_PREFIX_DEFAULT;
+  }
+
+  /** Load all entries from the backend into the in-memory cache. Call once on startup. */
+  async load(): Promise<void> {
+    if (!this.backend) return;
+    const keys = await this.backend.keys(this.prefix);
+    const values = await this.backend.getMany(keys);
+    for (const [, json] of values) {
+      const stored: StoredCertificate = JSON.parse(json);
+      this.certificates.set(stored.serverName, stored);
+    }
+  }
 
   /**
    * Load an STC from a file and verify its signature.
@@ -32,6 +61,11 @@ export class TrustStore {
     };
 
     this.certificates.set(serverName, stored);
+
+    if (this.backend) {
+      await this.backend.set(`${this.prefix}${serverName}`, JSON.stringify(stored));
+    }
+
     return stored;
   }
 
@@ -49,6 +83,11 @@ export class TrustStore {
     };
 
     this.certificates.set(serverName, stored);
+
+    if (this.backend) {
+      await this.backend.set(`${this.prefix}${serverName}`, JSON.stringify(stored));
+    }
+
     return stored;
   }
 
@@ -78,7 +117,11 @@ export class TrustStore {
   /**
    * Remove a certificate.
    */
-  remove(serverName: string): boolean {
-    return this.certificates.delete(serverName);
+  async remove(serverName: string): Promise<boolean> {
+    const existed = this.certificates.delete(serverName);
+    if (existed && this.backend) {
+      await this.backend.delete(`${this.prefix}${serverName}`);
+    }
+    return existed;
   }
 }

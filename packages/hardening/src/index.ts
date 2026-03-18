@@ -54,3 +54,9 @@ export {
   totalLogSize,
   type RotationConfig,
 } from './audit-rotation.js';
+
+export {
+  applySecurityHeaders,
+  securityHeadersConfigFromEnv,
+  type SecurityHeadersConfig,
+} from './security-headers.js';
