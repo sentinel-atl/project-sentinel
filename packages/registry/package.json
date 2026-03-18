@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/registry",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Trust Registry API — publish, query, and verify Sentinel Trust Certificates",
   "type": "module",
   "main": "dist/index.js",

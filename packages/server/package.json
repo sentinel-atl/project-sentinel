@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "STP-compliant HTTP server — exposes Sentinel's trust pipeline as a language-agnostic REST API",
   "type": "module",
   "main": "dist/index.js",
