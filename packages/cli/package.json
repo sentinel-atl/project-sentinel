@@ -17,9 +17,11 @@
   "dependencies": {
     "@sentinel-atl/core": ">=0.1.1",
     "@sentinel-atl/audit": ">=0.1.1",
+    "@sentinel-atl/attestation": "*",
     "@sentinel-atl/handshake": ">=0.1.1",
     "@sentinel-atl/reputation": ">=0.1.1",
     "@sentinel-atl/recovery": ">=0.1.1",
+    "@sentinel-atl/scanner": "*",
     "commander": "^13.0.0",
     "chalk": "^5.4.0"
   },

@@ -8,6 +8,9 @@
  *   sentinel whoami                  Show current agent identity
  *   sentinel sign <message>          Sign a message
  *   sentinel verify <msg> <sig> <did> Verify a signature
+ *   sentinel scan <path>             Scan an MCP server package for security issues
+ *   sentinel certify <path>          Scan + issue a Sentinel Trust Certificate
+ *   sentinel check-cert <path>       Verify a Sentinel Trust Certificate
  *   sentinel issue-vc                Issue a Verifiable Credential
  *   sentinel verify-vc <path>        Verify a Verifiable Credential
  *   sentinel create-intent           Create a signed Intent Envelope
@@ -48,6 +51,8 @@ import {
 } from '@sentinel-atl/core';
 import { AuditLog } from '@sentinel-atl/audit';
 import { splitSecret, reconstructSecret, type Share } from '@sentinel-atl/recovery';
+import { scan, issueSTC, verifySTC, type ScanReport, type SentinelTrustCertificate } from '@sentinel-atl/scanner';
+import { hashDirectory } from '@sentinel-atl/attestation';
 
 // ─── State Management ────────────────────────────────────────────────
 
@@ -410,6 +415,216 @@ program
     console.log(chalk.yellow('⚠ Distribute these shares to different trusted parties.'));
     console.log(chalk.yellow('  Anyone with ' + opts.threshold + ' shares can reconstruct your key.'));
   });
+
+// ─── sentinel scan ───────────────────────────────────────────────────
+
+program
+  .command('scan <path>')
+  .description('Scan an MCP server package for security issues')
+  .option('--json', 'Output raw JSON report')
+  .option('--skip-deps', 'Skip dependency vulnerability scanning')
+  .action(async (packagePath: string, opts: { json?: boolean; skipDeps?: boolean }) => {
+    const resolvedPath = join(process.cwd(), packagePath);
+    console.log(chalk.gray(`Scanning ${resolvedPath}...`));
+    console.log();
+
+    const report = await scan({
+      packagePath: resolvedPath,
+      skipDependencies: opts.skipDeps,
+    });
+
+    if (opts.json) {
+      console.log(JSON.stringify(report, null, 2));
+      return;
+    }
+
+    printScanReport(report);
+
+    // Audit
+    const auditLog = new AuditLog({ logPath: AUDIT_LOG_PATH });
+    await auditLog.log({
+      eventType: 'vc_issued',
+      actorDid: 'cli',
+      result: 'success',
+      metadata: {
+        type: 'scan',
+        package: report.packageName,
+        score: report.trustScore.overall,
+        grade: report.trustScore.grade,
+      },
+    });
+  });
+
+// ─── sentinel certify ────────────────────────────────────────────────
+
+program
+  .command('certify <path>')
+  .description('Scan a package and issue a signed Sentinel Trust Certificate (STC)')
+  .option('--out <path>', 'Output file path for the certificate')
+  .option('--validity <hours>', 'Certificate validity in hours', '720')
+  .option('--skip-deps', 'Skip dependency vulnerability scanning')
+  .action(async (packagePath: string, opts: { out?: string; validity?: string; skipDeps?: boolean }) => {
+    const identity = await loadIdentity();
+    if (!identity) {
+      console.log(chalk.red('✗ No identity found. Run: sentinel init'));
+      return;
+    }
+
+    const resolvedPath = join(process.cwd(), packagePath);
+    console.log(chalk.gray(`Scanning ${resolvedPath}...`));
+
+    // Run scan
+    const report = await scan({
+      packagePath: resolvedPath,
+      skipDependencies: opts.skipDeps,
+    });
+
+    // Compute code hash
+    const { codeHash } = await hashDirectory(resolvedPath, {
+      extensions: ['.ts', '.js', '.mjs', '.cjs'],
+      exclude: ['node_modules', 'dist', '.git'],
+    });
+
+    // Issue STC
+    const kp = createKeyProviderFromStored(identity);
+    const stc = await issueSTC(kp, {
+      scanReport: report,
+      codeHash,
+      issuerDid: identity.did,
+      issuerKeyId: identity.keyId,
+      issuerName: 'sentinel-cli',
+      validityHours: parseInt(opts.validity ?? '720'),
+    });
+
+    const stcJson = JSON.stringify(stc, null, 2);
+
+    if (opts.out) {
+      await writeFile(opts.out, stcJson, 'utf-8');
+      console.log(chalk.green('✓ Sentinel Trust Certificate written to'), opts.out);
+    } else {
+      console.log();
+      printScanReport(report);
+      console.log(chalk.bold.green('\n✓ Sentinel Trust Certificate issued'));
+      console.log(chalk.bold('  ID:'), stc.id);
+      console.log(chalk.bold('  Issuer:'), stc.issuer.did);
+      console.log(chalk.bold('  Score:'), `${stc.trustScore.overall}/100 (${stc.trustScore.grade})`);
+      console.log(chalk.bold('  Expires:'), stc.expiresAt);
+      console.log();
+      console.log(stcJson);
+    }
+
+    // Audit
+    const auditLog = new AuditLog({ logPath: AUDIT_LOG_PATH });
+    await auditLog.log({
+      eventType: 'vc_issued',
+      actorDid: identity.did,
+      result: 'success',
+      metadata: {
+        type: 'stc',
+        package: report.packageName,
+        stcId: stc.id,
+        score: report.trustScore.overall,
+      },
+    });
+  });
+
+// ─── sentinel check-cert ─────────────────────────────────────────────
+
+program
+  .command('check-cert <path>')
+  .description('Verify a Sentinel Trust Certificate (STC) from a JSON file')
+  .action(async (path: string) => {
+    const data = await readFile(path, 'utf-8');
+    const stc: SentinelTrustCertificate = JSON.parse(data);
+    const result = await verifySTC(stc);
+
+    if (result.valid) {
+      console.log(chalk.green('✓ Certificate is valid'));
+      console.log(chalk.bold('  ID:'), stc.id);
+      console.log(chalk.bold('  Package:'), `${stc.subject.packageName}@${stc.subject.packageVersion}`);
+      console.log(chalk.bold('  Score:'), `${stc.trustScore.overall}/100 (${stc.trustScore.grade})`);
+      console.log(chalk.bold('  Issuer:'), stc.issuer.did);
+      console.log(chalk.bold('  Issued:'), stc.issuedAt);
+      console.log(chalk.bold('  Expires:'), stc.expiresAt);
+      console.log(chalk.bold('  Code Hash:'), stc.subject.codeHash);
+      console.log(chalk.bold('  Findings:'),
+        `${stc.findingSummary.critical} critical, ${stc.findingSummary.high} high, ${stc.findingSummary.medium} medium`
+      );
+    } else {
+      console.log(chalk.red('✗ Certificate is INVALID'));
+      console.log(chalk.red('  Reason:'), result.error);
+      process.exitCode = 1;
+    }
+  });
+
+// ─── Scan Report Printer ──────────────────────────────────────────────
+
+function printScanReport(report: ScanReport): void {
+  const { trustScore, findings, permissions } = report;
+
+  // Grade with color
+  const gradeColor = trustScore.grade === 'A' ? chalk.green
+    : trustScore.grade === 'B' ? chalk.blue
+    : trustScore.grade === 'C' ? chalk.yellow
+    : chalk.red;
+
+  console.log(chalk.bold('🛡️  Sentinel Security Scan'));
+  console.log();
+  console.log(chalk.bold('  Package:'), `${report.packageName}@${report.packageVersion}`);
+  console.log(chalk.bold('  Trust Score:'), gradeColor(`${trustScore.overall}/100 (${trustScore.grade})`));
+  console.log();
+  console.log(chalk.bold('  Score Breakdown:'));
+  console.log(`    Dependencies:  ${colorScore(trustScore.breakdown.dependencies)}/100`);
+  console.log(`    Code Patterns: ${colorScore(trustScore.breakdown.codePatterns)}/100`);
+  console.log(`    Permissions:   ${colorScore(trustScore.breakdown.permissions)}/100`);
+  console.log(`    Publisher:     ${colorScore(trustScore.breakdown.publisher)}/100`);
+
+  if (permissions.kinds.length > 0) {
+    console.log();
+    console.log(chalk.bold('  Permissions:'), permissions.kinds.join(', '));
+  }
+
+  if (findings.length > 0) {
+    console.log();
+    console.log(chalk.bold(`  Findings (${findings.length}):`));
+    const critical = findings.filter(f => f.severity === 'critical');
+    const high = findings.filter(f => f.severity === 'high');
+    const medium = findings.filter(f => f.severity === 'medium');
+    const low = findings.filter(f => f.severity === 'low' || f.severity === 'info');
+
+    if (critical.length) {
+      console.log(chalk.red(`    🔴 ${critical.length} critical`));
+      for (const f of critical.slice(0, 5)) {
+        console.log(chalk.red(`       ${f.title}`));
+      }
+    }
+    if (high.length) {
+      console.log(chalk.yellow(`    🟠 ${high.length} high`));
+      for (const f of high.slice(0, 5)) {
+        console.log(chalk.yellow(`       ${f.title}`));
+      }
+    }
+    if (medium.length) {
+      console.log(chalk.blue(`    🟡 ${medium.length} medium`));
+    }
+    if (low.length) {
+      console.log(chalk.gray(`    ⚪ ${low.length} low/info`));
+    }
+  } else {
+    console.log();
+    console.log(chalk.green('  ✓ No findings — clean package!'));
+  }
+
+  console.log();
+  console.log(chalk.gray(`  Scanned in ${report.durationMs}ms`));
+}
+
+function colorScore(score: number): string {
+  if (score >= 90) return chalk.green(String(score));
+  if (score >= 75) return chalk.blue(String(score));
+  if (score >= 60) return chalk.yellow(String(score));
+  return chalk.red(String(score));
+}
 
 // ─── sentinel audit verify ───────────────────────────────────────────
 

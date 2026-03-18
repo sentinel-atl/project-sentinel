@@ -1,0 +1,52 @@
+{
+  "name": "@sentinel-atl/scanner",
+  "version": "0.3.0",
+  "description": "MCP server security scanner — npm audit meets AI agent trust verification",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/attestation": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "typescript": "^5.7.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinel-atl/project-sentinel.git",
+    "directory": "packages/scanner"
+  },
+  "keywords": [
+    "mcp",
+    "security",
+    "scanner",
+    "trust",
+    "ai-agent",
+    "verification",
+    "audit"
+  ],
+  "homepage": "https://github.com/sentinel-atl/project-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/sentinel-atl/project-sentinel/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
