@@ -1,13 +1,10 @@
 {
-  "name": "@sentinel-atl/registry",
+  "name": "@sentinel-atl/hardening",
   "version": "0.3.0",
-  "description": "Trust Registry API — publish, query, and verify Sentinel Trust Certificates",
+  "description": "Production hardening middleware — API key auth, CORS, TLS, rate-limit headers, nonce persistence, audit rotation",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "sentinel-registry": "dist/cli.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -21,8 +18,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/scanner": "*",
-    "@sentinel-atl/hardening": "*"
+    "@sentinel-atl/store": "*"
   },
   "devDependencies": {
     "vitest": "^3.2.4",
@@ -33,14 +29,15 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/sentinel-atl/project-sentinel.git",
-    "directory": "packages/registry"
+    "directory": "packages/hardening"
   },
   "keywords": [
     "sentinel",
-    "trust",
-    "registry",
-    "mcp",
-    "certificate",
-    "badge"
+    "security",
+    "hardening",
+    "auth",
+    "cors",
+    "tls",
+    "production"
   ]
 }

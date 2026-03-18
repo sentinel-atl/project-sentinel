@@ -19,6 +19,14 @@ import { TrustGateway, type GatewayResponse } from './gateway.js';
 import type { GatewayConfig, ServerPolicy } from './config.js';
 import { TrustStore } from './trust-store.js';
 import { randomUUID } from 'node:crypto';
+import {
+  authenticate, sendUnauthorized,
+  applyCors, defaultCorsConfig,
+  createSecureServer,
+  setRateLimitHeaders, sendRateLimited,
+  RateLimiter as HardenedRateLimiter, parseRateLimit as hardenedParseRateLimit,
+  type AuthConfig, type CorsConfig, type TlsConfig,
+} from '@sentinel-atl/hardening';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -29,6 +37,12 @@ export interface ProxyOptions {
   trustStore?: TrustStore;
   /** Default caller ID when none provided */
   defaultCallerId?: string;
+  /** API key authentication config */
+  auth?: AuthConfig;
+  /** CORS configuration */
+  cors?: CorsConfig;
+  /** TLS configuration */
+  tls?: TlsConfig;
 }
 
 interface SSEClient {
@@ -52,12 +66,24 @@ export class TrustGatewayProxy {
   private sseClients = new Set<SSEClient>();
   private stdioUpstreams = new Map<string, StdioUpstream>();
   private defaultCallerId: string;
+  private authConfig: AuthConfig;
+  private corsConfig: CorsConfig;
+  private tlsConfig?: TlsConfig;
+  private globalRateLimiter?: HardenedRateLimiter;
 
   constructor(options: ProxyOptions) {
     this.config = options.config;
     this.defaultCallerId = options.defaultCallerId ?? 'anonymous';
+    this.authConfig = options.auth ?? { enabled: false, keys: [] };
+    this.corsConfig = options.cors ?? defaultCorsConfig();
+    this.tlsConfig = options.tls;
     const trustStore = options.trustStore ?? new TrustStore();
     this.gateway = new TrustGateway(this.config, trustStore);
+
+    // Public paths: health + stats + SSE are readable without auth
+    if (this.authConfig.enabled && !this.authConfig.publicPaths) {
+      this.authConfig.publicPaths = ['/health', '/stats', '/sse'];
+    }
   }
 
   getGateway(): TrustGateway {
@@ -78,7 +104,10 @@ export class TrustGatewayProxy {
     }
 
     return new Promise((resolve, reject) => {
-      this.server = createServer((req, res) => this.handleRequest(req, res));
+      this.server = createSecureServer(
+        (req, res) => this.handleRequest(req, res),
+        this.tlsConfig
+      );
 
       this.server.on('error', reject);
       this.server.listen(port, () => {
@@ -121,14 +150,13 @@ export class TrustGatewayProxy {
     const url = new URL(req.url ?? '/', `http://localhost`);
     const path = url.pathname;
 
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Caller-Id, X-Server-Name');
+    // CORS (configurable origins)
+    if (applyCors(req, res, this.corsConfig)) return; // preflight handled
 
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
+    // Authentication
+    const authResult = authenticate(req, this.authConfig);
+    if (!authResult.authenticated) {
+      sendUnauthorized(res, this.authConfig, authResult.error);
       return;
     }
 
@@ -247,8 +275,23 @@ export class TrustGatewayProxy {
       arguments: jsonRpc.params?.arguments,
     });
 
+    // ── Global rate-limit check (with RFC 6585 headers) ──
+    if (this.globalRateLimiter) {
+      const rlResult = this.globalRateLimiter.check(callerId);
+      if (!rlResult.allowed) {
+        sendRateLimited(res, rlResult.info);
+        return;
+      }
+      setRateLimitHeaders(res, rlResult.info);
+    }
+
     if (!gatewayResult.allowed) {
-      res.writeHead(403, { 'Content-Type': 'application/json' });
+      // Per-server rate-limit denial from gateway uses 429
+      const statusCode = gatewayResult.decision === 'deny-rate-limit' ? 429 : 403;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      if (statusCode === 429) {
+        res.setHeader('Retry-After', '60');
+      }
       res.end(JSON.stringify({
         jsonrpc: '2.0',
         id: jsonRpc.id,

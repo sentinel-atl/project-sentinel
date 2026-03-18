@@ -78,6 +78,16 @@ export interface GatewayConfig {
     minTrustScore?: number;
     minGrade?: string;
     logPath?: string;
+    /** API keys for authentication (comma-separated in YAML, or use env SENTINEL_API_KEYS) */
+    apiKeys?: string[];
+    /** Allowed CORS origins (comma-separated in YAML, or use env SENTINEL_CORS_ORIGINS) */
+    corsOrigins?: string[];
+    /** Path to TLS certificate file */
+    tlsCert?: string;
+    /** Path to TLS key file */
+    tlsKey?: string;
+    /** Global rate limit (e.g. "1000/min") */
+    rateLimit?: string;
   };
   servers: ServerPolicy[];
 }

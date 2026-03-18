@@ -19,6 +19,12 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
 import { CertificateStore, type RegistryEntry } from './store.js';
 import { gradeBadge, scoreBadge, verifiedBadge, notFoundBadge, type BadgeStyle } from './badge.js';
+import {
+  authenticate, hasScope, sendUnauthorized, sendForbidden,
+  applyCors, defaultCorsConfig,
+  createSecureServer,
+  type AuthConfig, type CorsConfig, type TlsConfig,
+} from '@sentinel-atl/hardening';
 import type { SentinelTrustCertificate } from '@sentinel-atl/scanner';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -28,6 +34,12 @@ export interface RegistryServerOptions {
   port?: number;
   /** Pre-configured certificate store */
   store?: CertificateStore;
+  /** API key authentication config */
+  auth?: AuthConfig;
+  /** CORS configuration */
+  cors?: CorsConfig;
+  /** TLS configuration */
+  tls?: TlsConfig;
 }
 
 // ─── Server ──────────────────────────────────────────────────────────
@@ -36,10 +48,21 @@ export class RegistryServer {
   private server: Server | null = null;
   private store: CertificateStore;
   private port: number;
+  private authConfig: AuthConfig;
+  private corsConfig: CorsConfig;
+  private tlsConfig?: TlsConfig;
 
   constructor(options?: RegistryServerOptions) {
     this.port = options?.port ?? 3200;
     this.store = options?.store ?? new CertificateStore();
+    this.authConfig = options?.auth ?? { enabled: false, keys: [] };
+    this.corsConfig = options?.cors ?? defaultCorsConfig();
+    this.tlsConfig = options?.tls;
+
+    // Badge endpoints are always public (for README embeds)
+    if (this.authConfig.enabled && !this.authConfig.publicPaths) {
+      this.authConfig.publicPaths = ['/health'];
+    }
   }
 
   getStore(): CertificateStore {
@@ -48,7 +71,10 @@ export class RegistryServer {
 
   async start(): Promise<{ port: number }> {
     return new Promise((resolve, reject) => {
-      this.server = createServer((req, res) => this.handleRequest(req, res));
+      this.server = createSecureServer(
+        (req, res) => this.handleRequest(req, res),
+        this.tlsConfig
+      );
       this.server.on('error', reject);
       this.server.listen(this.port, () => {
         resolve({ port: this.port });
@@ -66,6 +92,10 @@ export class RegistryServer {
     });
   }
 
+  isTLS(): boolean {
+    return !!this.tlsConfig?.certPath || !!this.tlsConfig?.cert;
+  }
+
   // ─── Router ────────────────────────────────────────────────────
 
   private async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -73,15 +103,16 @@ export class RegistryServer {
     const path = url.pathname;
     const method = req.method ?? 'GET';
 
-    // CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // CORS (configurable origins)
+    if (applyCors(req, res, this.corsConfig)) return; // preflight handled
 
-    if (method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
-      return;
+    // Authentication
+    const authResult = authenticate(req, this.authConfig);
+
+    // Badge endpoints are public even when auth is enabled
+    const isBadgePath = path.includes('/badge');
+    if (!authResult.authenticated && !isBadgePath) {
+      return sendUnauthorized(res, this.authConfig, authResult.error);
     }
 
     try {
@@ -95,8 +126,9 @@ export class RegistryServer {
         return this.sendJson(res, 200, this.store.getStats());
       }
 
-      // POST /api/v1/certificates — register
+      // POST /api/v1/certificates — register (requires write scope)
       if (path === '/api/v1/certificates' && method === 'POST') {
+        if (!hasScope(authResult, 'write')) return sendForbidden(res, 'Write scope required');
         return await this.handleRegister(req, res);
       }
 
@@ -110,7 +142,10 @@ export class RegistryServer {
       if (certMatch) {
         const id = decodeURIComponent(certMatch[1]);
         if (method === 'GET') return this.handleGetById(id, res);
-        if (method === 'DELETE') return this.handleDelete(id, res);
+        if (method === 'DELETE') {
+          if (!hasScope(authResult, 'admin')) return sendForbidden(res, 'Admin scope required');
+          return this.handleDelete(id, res);
+        }
       }
 
       // Package routes: /api/v1/packages/:name[/history|/badge|/badge/score]

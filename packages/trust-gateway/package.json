@@ -24,6 +24,7 @@
     "@sentinel-atl/core": "*",
     "@sentinel-atl/scanner": "*",
     "@sentinel-atl/audit": "*",
+    "@sentinel-atl/hardening": "*",
     "yaml": "^2.7.0"
   },
   "devDependencies": {

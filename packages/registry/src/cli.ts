@@ -9,6 +9,7 @@
  */
 
 import { RegistryServer } from './server.js';
+import { authConfigFromEnv, corsConfigFromEnv, tlsConfigFromEnv } from '@sentinel-atl/hardening';
 
 const args = process.argv.slice(2);
 
@@ -34,11 +35,17 @@ if (args.includes('--help') || args.includes('-h')) {
 const portIdx = args.indexOf('--port');
 const port = portIdx !== -1 ? parseInt(args[portIdx + 1]) : 3200;
 
-const server = new RegistryServer({ port });
+const server = new RegistryServer({
+  port,
+  auth: authConfigFromEnv(),
+  cors: corsConfigFromEnv(),
+  tls: tlsConfigFromEnv(),
+});
 
 console.log('🗂️  Sentinel Trust Registry');
 const { port: actualPort } = await server.start();
-console.log(`  Listening on http://localhost:${actualPort}`);
+const proto = server.isTLS() ? 'https' : 'http';
+console.log(`  Listening on ${proto}://localhost:${actualPort}`);
 console.log();
 console.log('  Endpoints:');
 console.log('    POST   /api/v1/certificates');

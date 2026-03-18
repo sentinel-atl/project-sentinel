@@ -13,6 +13,12 @@ import { loadConfig, validateConfig } from './config.js';
 import { TrustGateway } from './gateway.js';
 import { TrustGatewayProxy } from './proxy.js';
 import { parse as parseYaml } from 'yaml';
+import {
+  authConfigFromEnv,
+  corsConfigFromEnv,
+  tlsConfigFromEnv,
+} from '@sentinel-atl/hardening';
+import type { AuthConfig, CorsConfig, TlsConfig } from '@sentinel-atl/hardening';
 
 const args = process.argv.slice(2);
 
@@ -82,11 +88,30 @@ if (args[0] === 'validate') {
       }
     }
 
-    // Start HTTP proxy
-    const proxy = new TrustGatewayProxy({ config, trustStore: gateway.getTrustStore() });
+    // Start HTTP proxy with hardening config (YAML > env > defaults)
+    const authConfig: AuthConfig | undefined = config.gateway.apiKeys?.length
+      ? { enabled: true, keys: config.gateway.apiKeys.map(k => ({ key: k, scopes: ['read' as const, 'write' as const, 'admin' as const] })) }
+      : authConfigFromEnv();
+
+    const corsConfig: CorsConfig | undefined = config.gateway.corsOrigins?.length
+      ? { allowedOrigins: config.gateway.corsOrigins }
+      : corsConfigFromEnv();
+
+    const tlsConfig: TlsConfig | undefined = (config.gateway.tlsCert && config.gateway.tlsKey)
+      ? { enabled: true, certPath: config.gateway.tlsCert, keyPath: config.gateway.tlsKey }
+      : tlsConfigFromEnv();
+
+    const proxy = new TrustGatewayProxy({
+      config,
+      trustStore: gateway.getTrustStore(),
+      auth: authConfig,
+      cors: corsConfig,
+      tls: tlsConfig,
+    });
     const { port } = await proxy.start();
 
-    console.log(`\n  🚀 HTTP proxy listening on http://localhost:${port}`);
+    const proto = tlsConfig ? 'https' : 'http';
+    console.log(`\n  🚀 HTTP proxy listening on ${proto}://localhost:${port}`);
     console.log('  Endpoints:');
     console.log(`    GET  /sse?server=<name>   SSE stream`);
     console.log(`    POST /message?server=<name>  JSON-RPC relay`);
