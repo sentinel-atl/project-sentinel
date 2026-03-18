@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/server",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "STP-compliant HTTP server — exposes Sentinel's trust pipeline as a language-agnostic REST API",
   "type": "module",
   "main": "dist/index.js",
@@ -18,15 +18,15 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "*",
-    "@sentinel-atl/audit": "*",
-    "@sentinel-atl/reputation": "*",
-    "@sentinel-atl/revocation": "*",
-    "@sentinel-atl/handshake": "*",
-    "@sentinel-atl/safety": "*",
-    "@sentinel-atl/offline": "*",
-    "@sentinel-atl/gateway": "*",
-    "@sentinel-atl/sdk": "*"
+    "@sentinel-atl/core": ">=0.1.1",
+    "@sentinel-atl/audit": ">=0.1.1",
+    "@sentinel-atl/reputation": ">=0.1.1",
+    "@sentinel-atl/revocation": ">=0.1.1",
+    "@sentinel-atl/handshake": ">=0.1.1",
+    "@sentinel-atl/safety": ">=0.1.1",
+    "@sentinel-atl/offline": ">=0.1.1",
+    "@sentinel-atl/gateway": ">=0.1.1",
+    "@sentinel-atl/sdk": ">=0.1.1"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

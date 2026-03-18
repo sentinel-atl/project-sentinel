@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/gateway",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP Security Gateway — drop-in proxy adding identity, reputation, safety, and audit to any MCP server",
   "type": "module",
   "main": "dist/index.js",
@@ -18,14 +18,14 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "*",
-    "@sentinel-atl/mcp-plugin": "*",
-    "@sentinel-atl/sdk": "*",
-    "@sentinel-atl/audit": "*",
-    "@sentinel-atl/reputation": "*",
-    "@sentinel-atl/revocation": "*",
-    "@sentinel-atl/safety": "*",
-    "@sentinel-atl/offline": "*"
+    "@sentinel-atl/core": ">=0.1.1",
+    "@sentinel-atl/mcp-plugin": ">=0.1.1",
+    "@sentinel-atl/sdk": ">=0.1.1",
+    "@sentinel-atl/audit": ">=0.1.1",
+    "@sentinel-atl/reputation": ">=0.1.1",
+    "@sentinel-atl/revocation": ">=0.1.1",
+    "@sentinel-atl/safety": ">=0.1.1",
+    "@sentinel-atl/offline": ">=0.1.1"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

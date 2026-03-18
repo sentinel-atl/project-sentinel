@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/adapters",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Framework adapters for LangChain, CrewAI, AutoGen, and OpenAI Agents SDK — integrate Sentinel trust in any AI agent framework",
   "type": "module",
   "main": "dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CLI tool for the Agent Trust Layer — identity, credentials, signing, and trust operations",
   "type": "module",
   "main": "dist/index.js",
@@ -15,11 +15,11 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@sentinel-atl/core": "*",
-    "@sentinel-atl/audit": "*",
-    "@sentinel-atl/handshake": "*",
-    "@sentinel-atl/reputation": "*",
-    "@sentinel-atl/recovery": "*",
+    "@sentinel-atl/core": ">=0.1.1",
+    "@sentinel-atl/audit": ">=0.1.1",
+    "@sentinel-atl/handshake": ">=0.1.1",
+    "@sentinel-atl/reputation": ">=0.1.1",
+    "@sentinel-atl/recovery": ">=0.1.1",
     "commander": "^13.0.0",
     "chalk": "^5.4.0"
   },

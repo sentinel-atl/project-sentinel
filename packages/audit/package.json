@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/audit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Append-only, hash-chain integrity audit logging for the Agent Trust Layer",
   "type": "module",
   "main": "dist/index.js",

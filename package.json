@@ -1,6 +1,6 @@
 {
   "name": "project-sentinel",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "The Agent Trust Layer — identity, credentials, and reputation for AI agents",
   "license": "Apache-2.0",

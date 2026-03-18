@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/handshake",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Zero-trust handshake protocol with versioning, channel binding, and rate limiting",
   "type": "module",
   "main": "dist/index.js",
@@ -18,8 +18,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "*",
-    "@sentinel-atl/audit": "*"
+    "@sentinel-atl/core": ">=0.1.1",
+    "@sentinel-atl/audit": ">=0.1.1"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

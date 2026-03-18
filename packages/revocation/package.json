@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/revocation",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DID and VC revocation, key rotation, and emergency kill switch for the Agent Trust Layer",
   "type": "module",
   "main": "dist/index.js",
@@ -18,8 +18,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "*",
-    "@sentinel-atl/audit": "*"
+    "@sentinel-atl/core": ">=0.1.1",
+    "@sentinel-atl/audit": ">=0.1.1"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

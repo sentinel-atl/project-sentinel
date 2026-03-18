@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/dashboard",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Web dashboard for visualizing trust graphs, reputation scores, delegation chains, and audit logs",
   "type": "module",
   "main": "dist/index.js",
@@ -19,12 +19,12 @@
     "serve": "tsx src/server.ts"
   },
   "dependencies": {
-    "@sentinel-atl/core": "*",
-    "@sentinel-atl/reputation": "*",
-    "@sentinel-atl/audit": "*",
-    "@sentinel-atl/revocation": "*",
-    "@sentinel-atl/attestation": "*",
-    "@sentinel-atl/offline": "*"
+    "@sentinel-atl/core": ">=0.1.1",
+    "@sentinel-atl/reputation": ">=0.1.1",
+    "@sentinel-atl/audit": ">=0.1.1",
+    "@sentinel-atl/revocation": ">=0.1.1",
+    "@sentinel-atl/attestation": ">=0.1.1",
+    "@sentinel-atl/offline": ">=0.1.1"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
