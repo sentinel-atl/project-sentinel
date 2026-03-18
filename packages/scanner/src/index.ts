@@ -59,3 +59,16 @@ export {
   type STCVerifyResult,
   type IssueSTCOptions,
 } from './stc.js';
+
+export {
+  resolvePackage,
+  cleanupPackage,
+  type ResolvedPackage,
+} from './package-resolver.js';
+
+export {
+  probeTools,
+  type ToolProbeResult,
+  type MCPTool,
+  type ProbeOptions,
+} from './tool-prober.js';

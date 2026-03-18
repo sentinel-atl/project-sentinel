@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { scan, scanCodePatterns, scanPermissions, computeTrustScore, issueSTC, verifySTC } from '../index.js';
+import { scan, scanCodePatterns, scanPermissions, computeTrustScore, issueSTC, verifySTC, resolvePackage, cleanupPackage } from '../index.js';
 import { InMemoryKeyProvider, publicKeyToDid } from '@sentinel-atl/core';
 import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -291,4 +291,38 @@ describe('SentinelTrustCertificate', () => {
     expect(stc.findingSummary.total).toBeGreaterThan(0);
     expect(stc.findingSummary.critical).toBeGreaterThan(0);
   });
+});
+
+// ─── Package Resolver Tests ────────────────────────────────────────────
+
+describe('resolvePackage', () => {
+  it('resolves a local path', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: '@test/local-pkg', version: '2.0.0' }),
+      'src/index.ts': 'export const x = 1;\n',
+    });
+
+    const resolved = await resolvePackage(dir);
+    expect(resolved.source).toBe('local');
+    expect(resolved.name).toBe('@test/local-pkg');
+    expect(resolved.version).toBe('2.0.0');
+    expect(resolved.isTemporary).toBe(false);
+  });
+
+  it('throws for non-existent local path', async () => {
+    await expect(resolvePackage('/tmp/nonexistent-sentinel-test-path'))
+      .rejects.toThrow('not found');
+  });
+
+  it('resolves an npm package', async () => {
+    // Use a tiny, real npm package
+    const resolved = await resolvePackage('is-odd');
+    try {
+      expect(resolved.source).toBe('npm');
+      expect(resolved.name).toBe('is-odd');
+      expect(resolved.isTemporary).toBe(true);
+    } finally {
+      await cleanupPackage(resolved);
+    }
+  }, 30_000);
 });

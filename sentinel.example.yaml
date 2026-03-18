@@ -1,0 +1,47 @@
+# Sentinel Trust Gateway Configuration
+# Drop this file into your project root and run:
+#   sentinel-gateway --config sentinel.yaml
+
+gateway:
+  name: my-project-gateway
+  port: 3100
+  mode: strict              # strict = block unverified, permissive = warn only
+  minTrustScore: 60         # global minimum trust score
+  minGrade: C               # global minimum grade
+  logPath: ./sentinel-gateway-audit.jsonl
+
+servers:
+  # Filesystem server — read-only access with high trust requirements
+  - name: filesystem
+    upstream: stdio://npx -y @modelcontextprotocol/server-filesystem .
+    trust:
+      minScore: 75
+      minGrade: B
+      requireCertificate: true
+      maxFindingsCritical: 0
+      maxFindingsHigh: 2
+      allowedPermissions: [filesystem]
+    rateLimit: 100/min
+    blockedTools: [write_file, delete_file, move_file]
+    certificatePath: ./certs/filesystem.stc.json
+
+  # Web search server — network access allowed
+  - name: web-search
+    upstream: http://localhost:4000/sse
+    trust:
+      minScore: 50
+      allowedPermissions: [network, crypto]
+    rateLimit: 30/min
+
+  # Database server — strict controls
+  - name: database
+    upstream: stdio://node ./db-server.js
+    trust:
+      minScore: 80
+      minGrade: A
+      requireCertificate: true
+      maxFindingsCritical: 0
+      maxFindingsHigh: 0
+      blockedPermissions: [process, native]
+    rateLimit: 50/min
+    allowedTools: [query, get_schema, list_tables]

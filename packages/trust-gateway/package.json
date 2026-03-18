@@ -1,0 +1,57 @@
+{
+  "name": "@sentinel-atl/trust-gateway",
+  "version": "0.3.0",
+  "description": "YAML-configured MCP trust gateway — runtime enforcement of Sentinel Trust Certificates",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "sentinel-gateway": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/scanner": "*",
+    "@sentinel-atl/audit": "*",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "typescript": "^5.7.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinel-atl/project-sentinel.git",
+    "directory": "packages/trust-gateway"
+  },
+  "keywords": [
+    "mcp",
+    "gateway",
+    "trust",
+    "security",
+    "proxy",
+    "ai-agent",
+    "yaml"
+  ],
+  "homepage": "https://github.com/sentinel-atl/project-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/sentinel-atl/project-sentinel/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

@@ -8,6 +8,7 @@
  *   sentinel whoami                  Show current agent identity
  *   sentinel sign <message>          Sign a message
  *   sentinel verify <msg> <sig> <did> Verify a signature
+ *   sentinel trust-verify <package>   Verify an MCP server (npm/local/GitHub)
  *   sentinel scan <path>             Scan an MCP server package for security issues
  *   sentinel certify <path>          Scan + issue a Sentinel Trust Certificate
  *   sentinel check-cert <path>       Verify a Sentinel Trust Certificate
@@ -51,7 +52,7 @@ import {
 } from '@sentinel-atl/core';
 import { AuditLog } from '@sentinel-atl/audit';
 import { splitSecret, reconstructSecret, type Share } from '@sentinel-atl/recovery';
-import { scan, issueSTC, verifySTC, type ScanReport, type SentinelTrustCertificate } from '@sentinel-atl/scanner';
+import { scan, issueSTC, verifySTC, resolvePackage, cleanupPackage, probeTools, type ScanReport, type SentinelTrustCertificate } from '@sentinel-atl/scanner';
 import { hashDirectory } from '@sentinel-atl/attestation';
 
 // ─── State Management ────────────────────────────────────────────────
@@ -414,6 +415,142 @@ program
     console.log();
     console.log(chalk.yellow('⚠ Distribute these shares to different trusted parties.'));
     console.log(chalk.yellow('  Anyone with ' + opts.threshold + ' shares can reconstruct your key.'));
+  });
+
+// ─── sentinel verify (the marquee command) ───────────────────────────
+
+program
+  .command('trust-verify <package>')
+  .description('Verify an MCP server — the "npm audit" for AI agents')
+  .option('--json', 'Output raw JSON report')
+  .option('--skip-deps', 'Skip dependency vulnerability scanning')
+  .option('--skip-probe', 'Skip runtime tool probing')
+  .option('--probe-cmd <cmd>', 'Command to start the MCP server for probing')
+  .option('--certify', 'Also issue a signed Sentinel Trust Certificate')
+  .option('--out <path>', 'Output file path for certificate')
+  .action(async (packageSpec: string, opts: {
+    json?: boolean; skipDeps?: boolean; skipProbe?: boolean;
+    probeCmd?: string; certify?: boolean; out?: string;
+  }) => {
+    console.log(chalk.bold('🛡️  Sentinel Trust Verification\n'));
+
+    // Step 1: Resolve package
+    console.log(chalk.gray(`  Resolving ${packageSpec}...`));
+    let resolved;
+    try {
+      resolved = await resolvePackage(packageSpec);
+    } catch (err) {
+      console.log(chalk.red(`✗ Could not resolve package: ${(err as Error).message}`));
+      process.exitCode = 1;
+      return;
+    }
+    console.log(chalk.gray(`  ✓ Resolved: ${resolved.name}@${resolved.version} (${resolved.source})`));
+
+    try {
+      // Step 2: Static analysis
+      console.log(chalk.gray('  Running static analysis...'));
+      const report = await scan({
+        packagePath: resolved.path,
+        skipDependencies: opts.skipDeps,
+      });
+
+      // Step 3: Tool probing (optional)
+      let probeResult = undefined;
+      if (!opts.skipProbe && opts.probeCmd) {
+        console.log(chalk.gray('  Probing MCP server tools...'));
+        const parts = opts.probeCmd.split(' ');
+        probeResult = await probeTools({
+          command: parts[0],
+          args: parts.slice(1),
+          cwd: resolved.path,
+          timeoutMs: 15_000,
+        });
+
+        if (probeResult.success) {
+          console.log(chalk.gray(`  ✓ Found ${probeResult.tools.length} tools (${probeResult.serverName ?? 'unknown'})`));
+          // Merge probe findings into the report
+          report.findings.push(...probeResult.findings);
+        } else {
+          console.log(chalk.yellow(`  ⚠ Probe failed: ${probeResult.error}`));
+        }
+      }
+
+      // Step 4: Output
+      if (opts.json) {
+        const output: Record<string, unknown> = { ...report };
+        if (probeResult?.success) {
+          output.tools = probeResult.tools;
+          output.serverName = probeResult.serverName;
+          output.serverVersion = probeResult.serverVersion;
+        }
+        console.log(JSON.stringify(output, null, 2));
+      } else {
+        console.log();
+        printScanReport(report);
+
+        if (probeResult?.success && probeResult.tools.length > 0) {
+          console.log(chalk.bold('\n  MCP Tools Discovered:'));
+          for (const tool of probeResult.tools.slice(0, 20)) {
+            const desc = tool.description ? chalk.gray(` — ${tool.description.slice(0, 60)}`) : '';
+            console.log(`    ${chalk.cyan(tool.name)}${desc}`);
+          }
+          if (probeResult.tools.length > 20) {
+            console.log(chalk.gray(`    ... and ${probeResult.tools.length - 20} more`));
+          }
+        }
+      }
+
+      // Step 5: Certify (optional)
+      if (opts.certify) {
+        const identity = await loadIdentity();
+        if (!identity) {
+          console.log(chalk.yellow('\n⚠ Cannot certify — no identity. Run: sentinel init'));
+        } else {
+          const { codeHash } = await hashDirectory(resolved.path, {
+            extensions: ['.ts', '.js', '.mjs', '.cjs'],
+            exclude: ['node_modules', 'dist', '.git'],
+          });
+
+          const kp = createKeyProviderFromStored(identity);
+          const stc = await issueSTC(kp, {
+            scanReport: report,
+            codeHash,
+            issuerDid: identity.did,
+            issuerKeyId: identity.keyId,
+            issuerName: 'sentinel-cli',
+          });
+
+          const stcJson = JSON.stringify(stc, null, 2);
+          if (opts.out) {
+            await writeFile(opts.out, stcJson, 'utf-8');
+            console.log(chalk.green(`\n✓ Certificate written to ${opts.out}`));
+          } else {
+            console.log(chalk.bold.green('\n✓ Sentinel Trust Certificate'));
+            console.log(chalk.bold('  ID:'), stc.id);
+            console.log(chalk.bold('  Score:'), `${stc.trustScore.overall}/100 (${stc.trustScore.grade})`);
+          }
+        }
+      }
+
+      // Audit
+      const auditLog = new AuditLog({ logPath: AUDIT_LOG_PATH });
+      await auditLog.log({
+        eventType: 'vc_issued',
+        actorDid: 'cli',
+        result: 'success',
+        metadata: {
+          type: 'trust-verify',
+          package: report.packageName,
+          version: report.packageVersion,
+          source: resolved.source,
+          score: report.trustScore.overall,
+          grade: report.trustScore.grade,
+        },
+      });
+    } finally {
+      // Clean up temporary downloads
+      await cleanupPackage(resolved);
+    }
   });
 
 // ─── sentinel scan ───────────────────────────────────────────────────
