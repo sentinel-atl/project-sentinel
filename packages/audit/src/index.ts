@@ -213,3 +213,36 @@ export class AuditLog {
 }
 
 export { GENESIS_HASH };
+
+// ─── Standalone API ──────────────────────────────────────────────────
+//
+// Use Sentinel audit logging WITHOUT the full trust framework.
+// No DIDs, no VCs, no handshakes — just structured, tamper-evident logs.
+//
+//   import { createAuditLog } from '@sentinel-atl/audit';
+//   const log = await createAuditLog('./my-app-audit.jsonl');
+//   await log.log({ eventType: 'vc_issued', actorDid: 'my-service', result: 'success' });
+//   const integrity = await log.verifyIntegrity();
+
+/**
+ * Create an audit log with a single function call.
+ * Works standalone — no Sentinel SDK or DID setup required.
+ */
+export async function createAuditLog(path: string): Promise<AuditLog> {
+  const log = new AuditLog({ logPath: path });
+  await log.init();
+  return log;
+}
+
+/**
+ * Quick integrity check for any Sentinel audit log file.
+ */
+export async function verifyAuditFile(path: string): Promise<{
+  valid: boolean;
+  totalEntries: number;
+  brokenAt?: number;
+  error?: string;
+}> {
+  const log = new AuditLog({ logPath: path });
+  return log.verifyIntegrity();
+}

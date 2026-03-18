@@ -335,3 +335,313 @@ export class SafetyPipeline {
     this.config.classifiers.push(classifier);
   }
 }
+
+// ─── Azure Content Safety Classifier ─────────────────────────────────
+
+/**
+ * Real Azure Content Safety integration.
+ * Requires an Azure Content Safety resource.
+ *
+ * Usage:
+ *   const classifier = new AzureContentSafetyClassifier({
+ *     endpoint: 'https://my-resource.cognitiveservices.azure.com',
+ *     apiKey: process.env.AZURE_CONTENT_SAFETY_KEY!,
+ *   });
+ */
+export interface AzureContentSafetyConfig {
+  /** Azure Content Safety endpoint URL */
+  endpoint: string;
+  /** API key (or use DefaultAzureCredential externally and pass a token fetcher) */
+  apiKey?: string;
+  /** Custom token provider (alternative to apiKey) */
+  getToken?: () => Promise<string>;
+  /** API version (default: '2024-09-01') */
+  apiVersion?: string;
+  /** Categories to check (default: all) */
+  categories?: Array<'Hate' | 'Violence' | 'SelfHarm' | 'Sexual'>;
+  /** Block at or above this severity (0-6, default: 2) */
+  blockSeverity?: number;
+}
+
+const AZURE_CATEGORY_MAP: Record<string, SafetyCategory> = {
+  'Hate': 'hate_speech',
+  'Violence': 'violence',
+  'SelfHarm': 'self_harm',
+  'Sexual': 'sexual_content',
+};
+
+const AZURE_SEVERITY_MAP = (severity: number): SafetySeverity => {
+  if (severity >= 6) return 'critical';
+  if (severity >= 4) return 'high';
+  if (severity >= 2) return 'medium';
+  return 'low';
+};
+
+export class AzureContentSafetyClassifier implements ContentClassifier {
+  readonly id = 'azure-content-safety';
+  readonly name = 'Azure Content Safety';
+  private config: Required<AzureContentSafetyConfig>;
+
+  constructor(config: AzureContentSafetyConfig) {
+    this.config = {
+      endpoint: config.endpoint.replace(/\/$/, ''),
+      apiKey: config.apiKey ?? '',
+      getToken: config.getToken ?? (async () => ''),
+      apiVersion: config.apiVersion ?? '2024-09-01',
+      categories: config.categories ?? ['Hate', 'Violence', 'SelfHarm', 'Sexual'],
+      blockSeverity: config.blockSeverity ?? 2,
+    };
+  }
+
+  async classify(text: string): Promise<ClassificationResult> {
+    const start = Date.now();
+    const url = `${this.config.endpoint}/contentsafety/text:analyze?api-version=${this.config.apiVersion}`;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.config.apiKey) {
+      headers['Ocp-Apim-Subscription-Key'] = this.config.apiKey;
+    } else {
+      const token = await this.config.getToken();
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        text,
+        categories: this.config.categories,
+        outputType: 'FourSeverityLevels',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Azure Content Safety API error: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json() as {
+      categoriesAnalysis: Array<{ category: string; severity: number }>;
+    };
+
+    const violations: SafetyViolation[] = [];
+    for (const cat of data.categoriesAnalysis) {
+      if (cat.severity >= this.config.blockSeverity) {
+        violations.push({
+          category: AZURE_CATEGORY_MAP[cat.category] ?? 'custom',
+          severity: AZURE_SEVERITY_MAP(cat.severity),
+          confidence: cat.severity / 6,
+          description: `Azure Content Safety: ${cat.category} detected (severity ${cat.severity})`,
+        });
+      }
+    }
+
+    return {
+      safe: violations.length === 0,
+      violations,
+      classifierId: this.id,
+      latencyMs: Date.now() - start,
+    };
+  }
+}
+
+// ─── OpenAI Moderation Classifier ────────────────────────────────────
+
+/**
+ * Real OpenAI Moderation API integration.
+ *
+ * Usage:
+ *   const classifier = new OpenAIModerationClassifier({
+ *     apiKey: process.env.OPENAI_API_KEY!,
+ *   });
+ */
+export interface OpenAIModerationConfig {
+  /** OpenAI API key */
+  apiKey: string;
+  /** Model to use (default: 'omni-moderation-latest') */
+  model?: string;
+  /** Base URL (default: 'https://api.openai.com/v1') */
+  baseUrl?: string;
+}
+
+const OPENAI_CATEGORY_MAP: Record<string, SafetyCategory> = {
+  'hate': 'hate_speech',
+  'hate/threatening': 'hate_speech',
+  'harassment': 'hate_speech',
+  'harassment/threatening': 'hate_speech',
+  'self-harm': 'self_harm',
+  'self-harm/intent': 'self_harm',
+  'self-harm/instructions': 'self_harm',
+  'sexual': 'sexual_content',
+  'sexual/minors': 'sexual_content',
+  'violence': 'violence',
+  'violence/graphic': 'violence',
+};
+
+export class OpenAIModerationClassifier implements ContentClassifier {
+  readonly id = 'openai-moderation';
+  readonly name = 'OpenAI Moderation';
+  private config: Required<OpenAIModerationConfig>;
+
+  constructor(config: OpenAIModerationConfig) {
+    this.config = {
+      apiKey: config.apiKey,
+      model: config.model ?? 'omni-moderation-latest',
+      baseUrl: config.baseUrl ?? 'https://api.openai.com/v1',
+    };
+  }
+
+  async classify(text: string): Promise<ClassificationResult> {
+    const start = Date.now();
+    const url = `${this.config.baseUrl}/moderations`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify({ input: text, model: this.config.model }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI Moderation API error: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json() as {
+      results: Array<{
+        flagged: boolean;
+        categories: Record<string, boolean>;
+        category_scores: Record<string, number>;
+      }>;
+    };
+
+    const violations: SafetyViolation[] = [];
+    const result = data.results[0];
+    if (result?.flagged) {
+      for (const [category, flagged] of Object.entries(result.categories)) {
+        if (flagged) {
+          const score = result.category_scores[category] ?? 0;
+          violations.push({
+            category: OPENAI_CATEGORY_MAP[category] ?? 'custom',
+            severity: score > 0.9 ? 'critical' : score > 0.7 ? 'high' : score > 0.4 ? 'medium' : 'low',
+            confidence: score,
+            description: `OpenAI Moderation: ${category} flagged (score ${score.toFixed(3)})`,
+          });
+        }
+      }
+    }
+
+    return {
+      safe: violations.length === 0,
+      violations,
+      classifierId: this.id,
+      latencyMs: Date.now() - start,
+    };
+  }
+}
+
+// ─── Llama Guard Classifier (self-hosted) ────────────────────────────
+
+/**
+ * Llama Guard classifier for self-hosted safety models.
+ * Calls an OpenAI-compatible endpoint running Llama Guard.
+ *
+ * Usage:
+ *   const classifier = new LlamaGuardClassifier({
+ *     endpoint: 'http://localhost:8080/v1/chat/completions',
+ *   });
+ */
+export interface LlamaGuardConfig {
+  /** OpenAI-compatible API endpoint */
+  endpoint: string;
+  /** Model name (default: 'llama-guard-3-8b') */
+  model?: string;
+  /** API key if required */
+  apiKey?: string;
+}
+
+export class LlamaGuardClassifier implements ContentClassifier {
+  readonly id = 'llama-guard';
+  readonly name = 'Llama Guard';
+  private config: Required<LlamaGuardConfig>;
+
+  constructor(config: LlamaGuardConfig) {
+    this.config = {
+      endpoint: config.endpoint,
+      model: config.model ?? 'llama-guard-3-8b',
+      apiKey: config.apiKey ?? '',
+    };
+  }
+
+  async classify(text: string): Promise<ClassificationResult> {
+    const start = Date.now();
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (this.config.apiKey) {
+      headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+    }
+
+    const response = await fetch(this.config.endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: this.config.model,
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text }],
+          },
+        ],
+        max_tokens: 100,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Llama Guard API error: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
+
+    const output = data.choices[0]?.message?.content ?? '';
+    const violations: SafetyViolation[] = [];
+
+    // Llama Guard outputs "safe" or "unsafe\n<category>"
+    if (output.toLowerCase().startsWith('unsafe')) {
+      const lines = output.split('\n');
+      const category = lines[1]?.trim() ?? 'unknown';
+      violations.push({
+        category: this.mapCategory(category),
+        severity: 'high',
+        confidence: 0.85,
+        description: `Llama Guard: content classified as unsafe (${category})`,
+      });
+    }
+
+    return {
+      safe: violations.length === 0,
+      violations,
+      classifierId: this.id,
+      latencyMs: Date.now() - start,
+    };
+  }
+
+  private mapCategory(llamaCategory: string): SafetyCategory {
+    const lower = llamaCategory.toLowerCase();
+    if (lower.includes('violence')) return 'violence';
+    if (lower.includes('hate')) return 'hate_speech';
+    if (lower.includes('sexual')) return 'sexual_content';
+    if (lower.includes('self-harm') || lower.includes('self_harm') || lower.includes('suicide')) return 'self_harm';
+    if (lower.includes('criminal') || lower.includes('malware')) return 'malware';
+    return 'custom';
+  }
+}

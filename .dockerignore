@@ -1,0 +1,8 @@
+dist
+node_modules
+.git
+.turbo
+*.log
+*.jsonl
+.env
+.env.*

@@ -1,0 +1,62 @@
+{
+  "name": "@sentinel-atl/telemetry",
+  "version": "0.1.2",
+  "description": "OpenTelemetry instrumentation for Sentinel — traces, metrics, and span context for every trust decision",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0"
+  },
+  "peerDependencies": {
+    "@opentelemetry/sdk-node": ">=0.50.0",
+    "@opentelemetry/sdk-trace-base": ">=1.20.0",
+    "@opentelemetry/sdk-metrics": ">=1.20.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/sdk-node": { "optional": true },
+    "@opentelemetry/sdk-trace-base": { "optional": true },
+    "@opentelemetry/sdk-metrics": { "optional": true }
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinel-atl/project-sentinel.git",
+    "directory": "packages/telemetry"
+  },
+  "keywords": [
+    "sentinel",
+    "opentelemetry",
+    "otel",
+    "tracing",
+    "metrics",
+    "observability",
+    "ai-agent",
+    "trust"
+  ],
+  "homepage": "https://github.com/sentinel-atl/project-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/sentinel-atl/project-sentinel/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

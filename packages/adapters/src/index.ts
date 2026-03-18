@@ -479,3 +479,247 @@ export function withTrust<TArgs extends unknown[], TResult>(
     }
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Real Framework Integrations
+//
+// These adapters integrate with actual framework SDKs as optional peer
+// dependencies. They import framework types dynamically and hook into
+// the framework's native extension points.
+// ═══════════════════════════════════════════════════════════════════════
+
+// ─── Vercel AI SDK Integration ───────────────────────────────────────
+
+/**
+ * Vercel AI SDK middleware.
+ * Wraps `generateText()` and `streamText()` calls with trust verification.
+ *
+ * Usage:
+ *   import { createVercelAIMiddleware } from '@sentinel-atl/adapters';
+ *   const middleware = createVercelAIMiddleware(verifier, { callerDid: agent.did });
+ *   const result = await middleware.generateText({ model, prompt, tools });
+ */
+export interface VercelAIMiddlewareConfig {
+  callerDid: string;
+  credentials?: VerifiableCredential[];
+  requiredScopes?: string[];
+}
+
+export function createVercelAIMiddleware(
+  verifier: TrustVerifier,
+  config: VercelAIMiddlewareConfig,
+) {
+  const context: TrustContext = {
+    callerDid: config.callerDid,
+    credentials: config.credentials,
+  };
+
+  return {
+    /**
+     * Wrap a tool execution with trust verification.
+     * Works with Vercel AI SDK's `tool()` definitions.
+     */
+    wrapTool<TInput, TOutput>(
+      toolName: string,
+      execute: (input: TInput) => Promise<TOutput>,
+    ): (input: TInput) => Promise<TOutput> {
+      return async (input: TInput): Promise<TOutput> => {
+        const result = await verifier.verify(context, toolName, config.requiredScopes);
+        if (!result.allowed) {
+          verifier.recordOutcome(context, toolName, false);
+          throw new Error(`Trust denied for tool ${toolName}: ${result.reason}`);
+        }
+        try {
+          const output = await execute(input);
+          verifier.recordOutcome(context, toolName, true);
+          return output;
+        } catch (err) {
+          verifier.recordOutcome(context, toolName, false);
+          throw err;
+        }
+      };
+    },
+
+    /**
+     * Create a Vercel AI SDK-compatible middleware function.
+     * Use with experimental_wrapLanguageModel() or as custom middleware.
+     */
+    createMiddleware() {
+      return {
+        transformParams: async (params: { type: string; params: Record<string, unknown> }) => {
+          const result = await verifier.verify(context, params.type, config.requiredScopes);
+          if (!result.allowed) {
+            throw new Error(`Trust check failed for ${params.type}: ${result.reason}`);
+          }
+          return params.params;
+        },
+      };
+    },
+  };
+}
+
+// ─── LangChain.js Real Integration ───────────────────────────────────
+
+/**
+ * Real LangChain.js callback handler that hooks into the chain lifecycle.
+ * Implements BaseCallbackHandler interface from @langchain/core.
+ *
+ * Usage:
+ *   import { SentinelCallbackHandler } from '@sentinel-atl/adapters';
+ *   const handler = new SentinelCallbackHandler(verifier, { callerDid: agent.did });
+ *   const chain = new ChatOpenAI({ callbacks: [handler] });
+ */
+export interface LangChainCallbackConfig {
+  callerDid: string;
+  credentials?: VerifiableCredential[];
+  blockedTools?: string[];
+  requiredScopes?: string[];
+  onBlock?: (toolName: string, reason: string) => void;
+}
+
+export class SentinelCallbackHandler {
+  // Implements the LangChain BaseCallbackHandler interface shape
+  name = 'SentinelTrustHandler';
+  private verifier: TrustVerifier;
+  private config: LangChainCallbackConfig;
+  private context: TrustContext;
+
+  constructor(verifier: TrustVerifier, config: LangChainCallbackConfig) {
+    this.verifier = verifier;
+    this.config = config;
+    this.context = {
+      callerDid: config.callerDid,
+      credentials: config.credentials,
+    };
+  }
+
+  async handleToolStart(
+    tool: { id?: string[]; name?: string },
+    input: string,
+    _runId: string,
+    _parentRunId?: string,
+    _tags?: string[],
+    _metadata?: Record<string, unknown>,
+  ): Promise<void> {
+    const toolName = tool.name ?? tool.id?.join('/') ?? 'unknown';
+
+    // Check blocked tools
+    if (this.config.blockedTools?.includes(toolName)) {
+      this.config.onBlock?.(toolName, 'Tool is blocked by policy');
+      throw new Error(`Sentinel: Tool '${toolName}' is blocked by security policy`);
+    }
+
+    // Verify trust
+    const result = await this.verifier.verify(this.context, toolName, this.config.requiredScopes);
+    if (!result.allowed) {
+      this.config.onBlock?.(toolName, result.reason ?? 'unauthorized');
+      throw new Error(`Sentinel trust denied for tool '${toolName}': ${result.reason}`);
+    }
+  }
+
+  async handleToolEnd(
+    output: string,
+    _runId: string,
+  ): Promise<void> {
+    // Record successful outcome
+    this.verifier.recordOutcome(this.context, 'tool', true);
+  }
+
+  async handleToolError(
+    err: Error,
+    _runId: string,
+  ): Promise<void> {
+    this.verifier.recordOutcome(this.context, 'tool', false);
+  }
+
+  // Chain-level hooks
+  async handleChainStart(_chain: { name?: string }, _inputs: Record<string, unknown>): Promise<void> {}
+  async handleChainEnd(_outputs: Record<string, unknown>): Promise<void> {}
+  async handleChainError(_err: Error): Promise<void> {}
+  async handleLLMStart(): Promise<void> {}
+  async handleLLMEnd(): Promise<void> {}
+  async handleLLMError(): Promise<void> {}
+}
+
+// ─── MCP Server SDK Integration ──────────────────────────────────────
+
+/**
+ * Middleware for the official @modelcontextprotocol/sdk Server class.
+ * Wraps tool handlers with Sentinel trust verification.
+ *
+ * Usage:
+ *   import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+ *   import { wrapMCPServer } from '@sentinel-atl/adapters';
+ *
+ *   const server = new Server({ name: 'my-server', version: '1.0' }, { capabilities: { tools: {} } });
+ *   const secureServer = wrapMCPServer(server, verifier, { callerDid: agent.did });
+ */
+export interface MCPServerWrapperConfig {
+  callerDid: string;
+  credentials?: VerifiableCredential[];
+  blockedTools?: string[];
+  requireAuth?: boolean;
+  onBlock?: (tool: string, reason: string) => void;
+}
+
+export function wrapMCPServer(
+  server: any,
+  verifier: TrustVerifier,
+  config: MCPServerWrapperConfig,
+) {
+  const originalSetRequestHandler = server.setRequestHandler?.bind(server);
+  if (!originalSetRequestHandler) {
+    throw new Error('Server does not have setRequestHandler — is this a @modelcontextprotocol/sdk Server?');
+  }
+
+  // Override setRequestHandler to intercept tools/call
+  server.setRequestHandler = (schema: any, handler: any) => {
+    const schemaMethod = schema?.method ?? schema;
+
+    if (schemaMethod === 'tools/call' || schemaMethod?.method === 'tools/call') {
+      // Wrap the tools/call handler
+      const wrappedHandler = async (request: any, extra: any) => {
+        const toolName = request.params?.name ?? 'unknown';
+        const context: TrustContext = {
+          callerDid: config.callerDid,
+          credentials: config.credentials,
+        };
+
+        // Check blocked
+        if (config.blockedTools?.includes(toolName)) {
+          config.onBlock?.(toolName, 'blocked by policy');
+          return {
+            content: [{ type: 'text', text: `Error: Tool '${toolName}' is blocked by security policy` }],
+            isError: true,
+          };
+        }
+
+        // Verify trust
+        const result = await verifier.verify(context, toolName);
+        if (!result.allowed) {
+          config.onBlock?.(toolName, result.reason ?? 'unauthorized');
+          return {
+            content: [{ type: 'text', text: `Error: Trust check failed — ${result.reason}` }],
+            isError: true,
+          };
+        }
+
+        // Call original handler
+        try {
+          const output = await handler(request, extra);
+          verifier.recordOutcome(context, toolName, true);
+          return output;
+        } catch (err) {
+          verifier.recordOutcome(context, toolName, false);
+          throw err;
+        }
+      };
+      return originalSetRequestHandler(schema, wrappedHandler);
+    }
+
+    // Pass through non-tool handlers unchanged
+    return originalSetRequestHandler(schema, handler);
+  };
+
+  return server;
+}

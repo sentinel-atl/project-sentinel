@@ -1,0 +1,47 @@
+# MCP Security Proxy — Dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json tsconfig.base.json turbo.json ./
+COPY packages/ packages/
+RUN npm ci --ignore-scripts && \
+    npx turbo run build --filter=@sentinel-atl/mcp-proxy...
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN addgroup --system sentinel && adduser --system --ingroup sentinel sentinel
+
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package-lock.json ./
+COPY --from=builder /app/packages/core/package.json packages/core/package.json
+COPY --from=builder /app/packages/core/dist packages/core/dist
+COPY --from=builder /app/packages/audit/package.json packages/audit/package.json
+COPY --from=builder /app/packages/audit/dist packages/audit/dist
+COPY --from=builder /app/packages/reputation/package.json packages/reputation/package.json
+COPY --from=builder /app/packages/reputation/dist packages/reputation/dist
+COPY --from=builder /app/packages/revocation/package.json packages/revocation/package.json
+COPY --from=builder /app/packages/revocation/dist packages/revocation/dist
+COPY --from=builder /app/packages/safety/package.json packages/safety/package.json
+COPY --from=builder /app/packages/safety/dist packages/safety/dist
+COPY --from=builder /app/packages/offline/package.json packages/offline/package.json
+COPY --from=builder /app/packages/offline/dist packages/offline/dist
+COPY --from=builder /app/packages/mcp-plugin/package.json packages/mcp-plugin/package.json
+COPY --from=builder /app/packages/mcp-plugin/dist packages/mcp-plugin/dist
+COPY --from=builder /app/packages/gateway/package.json packages/gateway/package.json
+COPY --from=builder /app/packages/gateway/dist packages/gateway/dist
+COPY --from=builder /app/packages/mcp-proxy/package.json packages/mcp-proxy/package.json
+COPY --from=builder /app/packages/mcp-proxy/dist packages/mcp-proxy/dist
+
+RUN npm ci --omit=dev --ignore-scripts
+
+USER sentinel
+
+ENV NODE_ENV=production
+ENV PROXY_PORT=3100
+
+EXPOSE 3100
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3100/health || exit 1
+
+ENTRYPOINT ["node", "packages/mcp-proxy/dist/cli.js"]
+CMD ["--listen", "3100"]

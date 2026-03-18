@@ -1,0 +1,83 @@
+# ═══════════════════════════════════════════════════
+# Sentinel Stack — Docker Compose
+# ═══════════════════════════════════════════════════
+#
+# Full Sentinel trust infrastructure:
+# - STP Server (REST API)
+# - MCP Security Proxy
+# - Approval Web UI
+# - Redis (persistent storage)
+# - Dashboard
+#
+# Start:  docker compose up -d
+# Stop:   docker compose down
+# Logs:   docker compose logs -f sentinel-server
+
+services:
+  sentinel-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - SENTINEL_PORT=3000
+      - SENTINEL_HOST=0.0.0.0
+      - SENTINEL_DATA_DIR=/data
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - sentinel-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/.well-known/sentinel-configuration"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  mcp-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    ports:
+      - "3100:3100"
+    environment:
+      - PROXY_PORT=3100
+      - PROXY_RATE_LIMIT=100
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  approval-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3200:3200"
+    environment:
+      - APPROVAL_PORT=3200
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  sentinel-data:
+  redis-data:

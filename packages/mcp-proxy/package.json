@@ -1,0 +1,59 @@
+{
+  "name": "@sentinel-atl/mcp-proxy",
+  "version": "0.1.2",
+  "description": "MCP transport proxy — intercepts stdio/SSE traffic, applies Sentinel trust checks, forwards to upstream MCP server",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "sentinel-proxy": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@sentinel-atl/core": ">=0.1.1",
+    "@sentinel-atl/gateway": ">=0.1.1",
+    "@sentinel-atl/audit": ">=0.1.1",
+    "@sentinel-atl/reputation": ">=0.1.1",
+    "@sentinel-atl/safety": ">=0.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinel-atl/project-sentinel.git",
+    "directory": "packages/mcp-proxy"
+  },
+  "keywords": [
+    "sentinel",
+    "mcp",
+    "proxy",
+    "stdio",
+    "sse",
+    "transport",
+    "security",
+    "ai-agent"
+  ],
+  "homepage": "https://github.com/sentinel-atl/project-sentinel#readme",
+  "bugs": {
+    "url": "https://github.com/sentinel-atl/project-sentinel/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
