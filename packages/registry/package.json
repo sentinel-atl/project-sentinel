@@ -26,9 +26,9 @@
     "@sentinel-atl/store": "*"
   },
   "devDependencies": {
-    "vitest": "^3.2.4",
+    "vitest": "^4.1.0",
     "typescript": "^5.7.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^25.5.0"
   },
   "license": "Apache-2.0",
   "repository": {
