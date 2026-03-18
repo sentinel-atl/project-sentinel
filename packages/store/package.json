@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/store",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Persistent storage adapters for Sentinel — Redis, PostgreSQL, SQLite, and in-memory backends",
   "type": "module",
   "main": "dist/index.js",
