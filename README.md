@@ -1,8 +1,8 @@
 # Project Sentinel
 
-**Security scanner and trust gateway for MCP servers.**
+**Trust scores and signed certificates for MCP servers.**
 
-Scan any MCP package for vulnerabilities, dangerous code patterns, and publisher risk — then enforce trust policies at the gateway before requests reach your servers.
+Every MCP server gets a trust score (0–100), a signed trust certificate, and a gateway that won't route traffic unless the certificate passes. Like SSL certificates created trust on the web — Sentinel creates trust for AI agent packages.
 
 ```bash
 npx @sentinel-atl/scanner scan @modelcontextprotocol/server-filesystem
@@ -23,9 +23,9 @@ npx @sentinel-atl/scanner scan @modelcontextprotocol/server-filesystem
 
 ---
 
-## What the scanner checks
+## How it works: scan → certify → enforce
 
-7-layer analysis, zero setup:
+**1. Scan** — one command, 7 layers of analysis:
 
 | Layer | What it catches |
 |---|---|
@@ -37,23 +37,22 @@ npx @sentinel-atl/scanner scan @modelcontextprotocol/server-filesystem
 | **Semantic analysis** | Optional LLM-based code review for subtle issues |
 | **Trust score** | Weighted composite: 0–100, grade A–F |
 
-```bash
-# Scan any npm package
-npx @sentinel-atl/scanner scan some-mcp-server
+**2. Certify** — sign the scan results into a portable, Ed25519-signed trust certificate:
 
-# Scan in CI (GitHub Action)
-- uses: sentinel-atl/scan-action@v1
-  with:
-    packages: some-mcp-server
-    min-score: 70
-    max-critical: 0
+```ts
+import { scan, issueSTC } from '@sentinel-atl/scanner';
+
+const report = await scan({ packageName: 'some-mcp-server' });
+const stc = await issueSTC({ issuer, subject, findings: report.findings });
+// STC = Sentinel Trust Certificate — signed, verifiable, publishable
 ```
 
----
+Publish certificates to a trust registry. Add badges to your README:
+```
+![Trust Score](http://registry.example.com/api/v1/packages/my-server/badge)
+```
 
-## Enforce with the Trust Gateway
-
-Scanning tells you what's risky. The gateway *enforces* it — blocks untrusted packages, dangerous tools, and low-score servers before requests reach them:
+**3. Enforce** — the gateway only routes to certified, high-score servers:
 
 ```yaml
 # sentinel.yaml
@@ -74,15 +73,7 @@ servers:
 npx sentinel-gateway --config sentinel.yaml
 ```
 
-**scan → certify → enforce:** Scan a package, issue a signed trust certificate, publish it to a registry, then the gateway only routes to certified servers.
-
-```ts
-import { scan, issueSTC } from '@sentinel-atl/scanner';
-
-const report = await scan({ packageName: 'some-mcp-server' });
-const stc = await issueSTC({ issuer, subject, findings: report.findings });
-// Publish to your trust registry → gateway enforces it
-```
+No certificate? Gateway rejects it. Score below threshold? Rejected. Critical findings? Rejected. This isn't scanning and hoping — it's enforcement.
 
 ---
 
