@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-atl/dashboard",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Web dashboard for visualizing trust graphs, reputation scores, delegation chains, and audit logs",
   "type": "module",
   "main": "dist/index.js",
