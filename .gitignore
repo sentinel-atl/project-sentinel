@@ -39,3 +39,6 @@ __pycache__/
 
 # Sentinel local state (user-specific)
 .sentinel/
+
+# Local-only docs (brainstorming, strategy — never push)
+docs-local/
