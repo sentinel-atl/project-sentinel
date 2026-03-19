@@ -1,49 +1,75 @@
-# 🛡️ Project Sentinel
+# Project Sentinel
 
-**The missing security layer for AI agents.**
+**Other MCP security tools add a proxy. Sentinel adds an identity layer.**
 
-Give your AI agents cryptographic identity, verifiable credentials, and zero-trust authentication — in 5 lines of code.
+Most "MCP security" products are firewalls — they sit between client and server and filter requests. That's one layer. Sentinel gives every AI agent a cryptographic identity (DID), W3C Verifiable Credentials, and a signed chain of authority back to the human who authorized the action. It's the difference between "this request looks safe" and "this request was authorized by Alice, delegated through Agent A, with scope `travel:book`, expiring in 2 hours, and here's the cryptographic proof."
 
-[![npm](https://img.shields.io/npm/v/@sentinel-atl/core?label=npm)](https://www.npmjs.com/package/@sentinel-atl/core)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-513%20passing-brightgreen.svg)]()
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg)](python/)
+[![npm](https://img.shields.io/npm/v/@sentinel-atl/core)](https://www.npmjs.com/package/@sentinel-atl/core)
+[![Tests](https://img.shields.io/badge/Tests-592%20passing-brightgreen.svg)]()
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Protocol](https://img.shields.io/badge/Protocol-STP%20v1.0-green.svg)](specs/sentinel-trust-protocol-v1.0.md)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178C6.svg)](https://www.typescriptlang.org/)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB.svg)](python/)
 
 ```bash
-npx create-sentinel-app my-agent
-cd my-agent && npm start
-```
-
-```
-🛡️  Starting trusted agent...
-
-✅ Agent created: did:key:z6MkmFvfVYWsTms7kKAZKFyUeWKf65KU...
-   Capabilities: search, process, respond
-
-📜 Credential issued: urn:uuid:731fb0a2-de3b-d2e6-75...
-🎯 Intent created: 019cff66-3ed5-7d34-be7e-ba62d8...
-
-🔒 Safety check: ✅ SAFE
-🔒 Safety check: ❌ BLOCKED (prompt injection detected)
-
-🎉 Your trusted agent is ready!
+npx create-sentinel-app my-agent && cd my-agent && npm start
 ```
 
 ---
 
-## Why?
+## What makes this different
 
-AI agents are being deployed everywhere — booking flights, processing payments, calling APIs, hiring sub-agents. But:
+| What others do | What Sentinel does |
+|---|---|
+| Proxy between client ↔ MCP server | Give agents cryptographic identity (`did:key`) |
+| Filter tool calls by allowlist/blocklist | Verify W3C credentials with scoped permissions |
+| No concept of "who authorized this?" | **Proof of Intent** — every action traces back to a signed human authorization, through a verifiable delegation chain |
+| Runtime-only protection | **Supply chain scanning** — audit MCP packages *before* they run (`npx @sentinel-atl/scanner scan <pkg>`) |
+| Single-agent focus | **Zero-trust handshake** — two agents that have never met can mutually verify in 5 steps, no central authority |
+| No revocation story | **Emergency kill switch** — revoke a compromised agent + all its delegates in <5s, cascading |
+| Proprietary | **Open protocol** — [STP v1.0](specs/sentinel-trust-protocol-v1.0.md) is a spec, not a product. Anyone can implement it. |
 
-- **MCP** lets agents call tools. It has **no security layer.**
-- **A2A** lets agents talk. It has **no identity verification.**
-- Your agents have **no way to prove who they are, what they're allowed to do, or who authorized them.**
+---
 
-Sentinel adds the trust layer that's missing.
+## Try it
 
-## What You Get
+### Scan an MCP package (no setup)
+
+```bash
+npx @sentinel-atl/scanner scan @modelcontextprotocol/server-filesystem
+```
+```
+📊 Trust Score: 82/100 (Grade: B)
+   Dependencies:  ✅ No known vulnerabilities
+   Code Patterns: ⚠️  1 high (child_process usage)
+   Permissions:   ✅ filesystem, network
+   Publisher:     ✅ Verified on npm (2 years, 50K downloads/week)
+```
+
+### Secure an MCP server (2 minutes)
+
+```bash
+npx create-sentinel-app my-server --template mcp-secure-server
+```
+
+Every tool call goes through: **identity → credentials → scope → reputation → safety → audit.**
+
+### Zero-trust handshake between two agents
+
+```bash
+npx create-sentinel-app demo --template two-agent-handshake
+```
+```
+1️⃣  Alice → Init (nonce + DID + passport)
+2️⃣  Bob → Response (nonce + DID)
+3️⃣  Alice → VC Exchange → Bob verifies: ✅
+4️⃣  Bob → VC Exchange → Alice verifies: ✅
+🔐 Session established. Neither trusted a central authority.
+```
+
+---
+
+## The 5-line version
 
 ```ts
 import { createTrustedAgent } from '@sentinel-atl/sdk';
@@ -51,106 +77,60 @@ import { createTrustedAgent } from '@sentinel-atl/sdk';
 const agent = await createTrustedAgent({
   name: 'my-agent',
   capabilities: ['search', 'book'],
-  enableSafety: true,  // Blocks prompt injection out of the box
+  enableSafety: true,
 });
 
-// Every agent gets a cryptographic identity (DID)
-console.log(agent.did); // did:key:z6Mk...
-
-// Issue verifiable credentials
-const vc = await agent.issueCredential({
-  type: 'AgentAuthorizationCredential',
-  subjectDid: peerAgent.did,
-  scope: ['travel:search', 'travel:book'],
-});
-
-// Zero-trust handshake with another agent
-const session = await agent.handshake(peerDid, peerPassport, myVCs, peerVCs);
-
-// Content safety — blocks prompt injection, jailbreak, PII leaks
-const check = await agent.checkSafety('Ignore previous instructions...');
-// { safe: false, blocked: true, violations: [{ category: 'prompt_injection' }] }
+console.log(agent.did);  // did:key:z6Mk...
 ```
 
-## Secure Your MCP Server in 2 Minutes
+That agent now has: a DID, credential issuance, zero-trust handshake, content safety (prompt injection / jailbreak / PII blocking), and a tamper-evident audit trail.
 
-MCP has no built-in security. Sentinel fixes that:
+---
 
-```bash
-npx create-sentinel-app my-server --template mcp-secure-server
-cd my-server && npm start
+## Proof of Intent — the core idea
+
+Every other agent identity system answers: *"Is this agent who it claims to be?"*
+
+Sentinel also answers: *"Was this action authorized by a real human, through what delegation chain, for what scope, and is it still valid?"*
+
+```
+Human → issues credential (scope: travel:search, travel:book)
+  └─→ Agent A → delegates to Agent B (scope narrows to: travel:search only)
+        └─→ Agent B → calls search_flights()
+              └─→ Intent Envelope: signed by B, chain proves A authorized it,
+                   chain proves Human authorized A, scope covers this tool ✅
 ```
 
-```
-🛡️  MCP Server with Sentinel Security
-🖥️  Server: did:key:z6Mko15S...
-🤖 Agent:  did:key:z6MktP4u...
+Every hop narrows. Never widens. If any link is revoked, expired, or out of scope — the chain breaks.
 
-→ Calling search_flights({"destination":"Tokyo"})
-  ✅ Authorized (reputation: n/a)
-  📦 Result: Found 3 flights to Tokyo starting at $371
+---
 
-→ Calling search_flights with malicious input
-  ❌ BLOCKED: Content safety violation
-```
+## Agent Notary: scan → certify → enforce
 
-Every tool call is verified: **identity → credentials → reputation → safety → audit.**
+A full supply-chain trust pipeline for MCP servers.
 
-## 🔍 Agent Notary — npm audit for AI Agents
-
-Sentinel includes a complete trust verification pipeline for MCP servers: **scan → certify → enforce.**
-
-### 1. Scan any MCP server
-
+**Scan** — 7-layer analysis (dependencies, code patterns, permissions, publisher identity, typosquatting, semantic analysis):
 ```bash
 npx @sentinel-atl/scanner scan some-mcp-server
+# Trust Score: 58/100 (Grade: D) — eval() usage, young npm account
 ```
 
-```
-📊 Trust Score: 82/100 (Grade: B)
-
-  Dependencies:  ✅ No known vulnerabilities
-  Code Patterns: ⚠️  1 high (child_process usage)
-  Permissions:   ✅ filesystem, network
-  Publisher:     ✅ Verified on npm (2 years, 50K downloads/week)
-```
-
-### 2. Get a Sentinel Trust Certificate (STC)
-
+**Certify** — issue a signed Sentinel Trust Certificate (STC):
 ```ts
-import { scan, issueSTC } from '@sentinel-atl/scanner';
-
 const report = await scan({ packageName: 'some-mcp-server' });
 const stc = await issueSTC({ issuer, subject, findings: report.findings });
 ```
 
-### 3. Publish to the Trust Registry
-
-```bash
-curl -X POST http://registry.example.com/api/v1/certificates \
-  -H "Content-Type: application/json" -d @stc.json
-```
-
-Add a trust badge to your README:
-```
-![Trust Score](http://registry.example.com/api/v1/packages/my-server/badge)
-```
-
-### 4. Enforce with the Trust Gateway
-
+**Enforce** — the Trust Gateway blocks uncertified or low-score servers:
 ```yaml
 # sentinel.yaml
 gateway:
-  port: 3100
   mode: strict
   minTrustScore: 70
-
 servers:
   - name: filesystem
     upstream: stdio://node ./fs-server.js
     trust:
-      minScore: 75
-      minGrade: B
       requireCertificate: true
       maxFindingsCritical: 0
     blockedTools: [delete_file]
@@ -160,51 +140,19 @@ servers:
 npx sentinel-gateway --config sentinel.yaml
 ```
 
-The gateway sits between your client and MCP servers, enforcing trust policies on every request.
+---
 
-| Package | What it does |
-|---------|-------------|
-| [`@sentinel-atl/scanner`](https://www.npmjs.com/package/@sentinel-atl/scanner) | Security scanner — dependencies, code patterns, permissions, publisher |
-| [`@sentinel-atl/registry`](https://www.npmjs.com/package/@sentinel-atl/registry) | Trust Registry API — publish, query, and badge STCs |
-| [`@sentinel-atl/trust-gateway`](https://www.npmjs.com/package/@sentinel-atl/trust-gateway) | YAML-configured trust enforcement proxy |
-| [`@sentinel-atl/hardening`](https://www.npmjs.com/package/@sentinel-atl/hardening) | Production middleware — auth, CORS, TLS, rate limiting, security headers |
-| [`@sentinel-atl/store`](https://www.npmjs.com/package/@sentinel-atl/store) | Persistence — Redis, PostgreSQL, SQLite, in-memory |
-
-## Zero-Trust Agent Handshake
-
-Two agents that don't know each other can cryptographically verify and establish a session:
-
-```bash
-npx create-sentinel-app demo --template two-agent-handshake
-cd demo && npm start
-```
-
-```
-🤝 Starting zero-trust handshake...
-
-  1️⃣  Alice → Init (nonce: 024ef99da08a...)
-  2️⃣  Bob → Response (nonce: 3ada70dcffb8...)
-  3️⃣  Alice → VC Exchange (AgentAuthorizationCredential)
-  4️⃣  Bob verifies Alice: ✅ VALID
-  5️⃣  Bob → VC Exchange (AgentAuthorizationCredential)
-  6️⃣  Alice verifies Bob: ✅ VALID
-
-🔐 Session established!
-✅ Both agents verified each other cryptographically.
-   Neither had to trust a central authority.
-```
-
-## How It Works
+## How it works
 
 ```
  Human                        Agent A                     Agent B
+   │                            │                            │
    │ 1. Issue credential        │                            │
    │  (scoped permissions)      │                            │
    │───────────────────────────>│                            │
    │                            │ 2. Zero-trust handshake    │
-   │                            │  (mutual VC exchange)      │
    │                            │<─────────────────────────>│
-   │                            │     ✓ Both verified        │
+   │                            │     ✓ Mutually verified    │
    │                            │ 3. Delegate (scope narrows)│
    │                            │──────────────────────────>│
    │  4. Step-up auth?          │                            │
@@ -212,264 +160,152 @@ cd demo && npm start
    │<────────────────────────────────────────────────────────│
    │  ✓ Approved                │                            │
    │─────────────────────────────────────────────────────────>
-   │                            │ 5. Reputation feedback     │
+   │                            │ 5. Reputation vouch        │
    │                            │<────────────────────────>│
 ```
 
-Every arrow is cryptographically signed. Every step is audit-logged. Scope can only narrow, never widen.
+Every arrow is cryptographically signed. Every step is audit-logged.
 
-## Packages
+---
 
-| Package | What it does |
+## Packages — 33 modules, use what you need
+
+<details>
+<summary><b>Core identity & credentials</b></summary>
+
+| Package | Purpose |
 |---|---|
-| [`@sentinel-atl/core`](https://www.npmjs.com/package/@sentinel-atl/core) | DID identity, Verifiable Credentials, Proof of Intent, crypto |
+| [`@sentinel-atl/core`](https://www.npmjs.com/package/@sentinel-atl/core) | DID identity, W3C Verifiable Credentials, Proof of Intent, Ed25519 crypto |
 | [`@sentinel-atl/sdk`](https://www.npmjs.com/package/@sentinel-atl/sdk) | High-level SDK — 5-line integration |
-| [`@sentinel-atl/handshake`](https://www.npmjs.com/package/@sentinel-atl/handshake) | Zero-trust mutual agent verification |
-| [`@sentinel-atl/gateway`](https://www.npmjs.com/package/@sentinel-atl/gateway) | MCP Security Gateway |
-| [`@sentinel-atl/mcp-plugin`](https://www.npmjs.com/package/@sentinel-atl/mcp-plugin) | MCP middleware for tool-call gating |
-| [`@sentinel-atl/mcp-proxy`](https://www.npmjs.com/package/@sentinel-atl/mcp-proxy) | **NEW** Real MCP transport proxy (stdio/SSE) with CLI |
-| [`@sentinel-atl/reputation`](https://www.npmjs.com/package/@sentinel-atl/reputation) | Trust scoring, Sybil resistance, quarantine |
-| [`@sentinel-atl/safety`](https://www.npmjs.com/package/@sentinel-atl/safety) | Content safety — prompt injection, PII, jailbreak + Azure/OpenAI/LlamaGuard |
-| [`@sentinel-atl/audit`](https://www.npmjs.com/package/@sentinel-atl/audit) | Tamper-evident hash-chain audit log (standalone API available) |
-| [`@sentinel-atl/revocation`](https://www.npmjs.com/package/@sentinel-atl/revocation) | Credential revocation + emergency kill switch |
-| [`@sentinel-atl/store`](https://www.npmjs.com/package/@sentinel-atl/store) | **NEW** Persistent storage (Redis, PostgreSQL, SQLite) |
-| [`@sentinel-atl/telemetry`](https://www.npmjs.com/package/@sentinel-atl/telemetry) | **NEW** OpenTelemetry traces, metrics, spans |
-| [`@sentinel-atl/budget`](https://www.npmjs.com/package/@sentinel-atl/budget) | **NEW** Token/cost control, circuit breakers, usage attribution |
-| [`@sentinel-atl/approval`](https://www.npmjs.com/package/@sentinel-atl/approval) | **NEW** Human approval workflows (Webhook, Slack, Web UI) |
-| [`@sentinel-atl/adapters`](https://www.npmjs.com/package/@sentinel-atl/adapters) | Vercel AI SDK, LangChain.js, MCP SDK, CrewAI, AutoGen adapters |
-| [`@sentinel-atl/server`](https://www.npmjs.com/package/@sentinel-atl/server) | HTTP REST API server |
-| [`@sentinel-atl/cli`](https://www.npmjs.com/package/@sentinel-atl/cli) | Command-line tool |
-| [`@sentinel-atl/recovery`](https://www.npmjs.com/package/@sentinel-atl/recovery) | Shamir's Secret Sharing key backup |
-| [`@sentinel-atl/attestation`](https://www.npmjs.com/package/@sentinel-atl/attestation) | Code attestation (bind DID → code hash) |
-| [`@sentinel-atl/stepup`](https://www.npmjs.com/package/@sentinel-atl/stepup) | Step-up auth for sensitive actions |
-| [`@sentinel-atl/offline`](https://www.npmjs.com/package/@sentinel-atl/offline) | Offline mode with cached trust decisions |
-| [`@sentinel-atl/hsm`](https://www.npmjs.com/package/@sentinel-atl/hsm) | HSM backends (AWS CloudHSM, Azure, PKCS#11) |
-| [`@sentinel-atl/dashboard`](https://www.npmjs.com/package/@sentinel-atl/dashboard) | Trust visualization dashboard |
+| [`@sentinel-atl/handshake`](https://www.npmjs.com/package/@sentinel-atl/handshake) | Zero-trust mutual agent verification (5-step protocol) |
+| [`@sentinel-atl/attestation`](https://www.npmjs.com/package/@sentinel-atl/attestation) | Code attestation — cryptographic bind of DID → code hash |
+
+</details>
+
+<details>
+<summary><b>Trust scoring & lifecycle</b></summary>
+
+| Package | Purpose |
+|---|---|
+| [`@sentinel-atl/reputation`](https://www.npmjs.com/package/@sentinel-atl/reputation) | Weighted scoring, Sybil resistance, time decay, quarantine |
+| [`@sentinel-atl/revocation`](https://www.npmjs.com/package/@sentinel-atl/revocation) | VC/DID revocation, key rotation, emergency kill switch |
+| [`@sentinel-atl/audit`](https://www.npmjs.com/package/@sentinel-atl/audit) | Tamper-evident hash-chain audit log |
+| [`@sentinel-atl/safety`](https://www.npmjs.com/package/@sentinel-atl/safety) | Content safety — prompt injection, jailbreak, PII detection |
+
+</details>
+
+<details>
+<summary><b>Gateways & proxies</b></summary>
+
+| Package | Purpose |
+|---|---|
+| [`@sentinel-atl/gateway`](https://www.npmjs.com/package/@sentinel-atl/gateway) | Full MCP security gateway with policies & rate limiting |
+| [`@sentinel-atl/trust-gateway`](https://www.npmjs.com/package/@sentinel-atl/trust-gateway) | YAML-configured trust enforcement proxy |
+| [`@sentinel-atl/mcp-plugin`](https://www.npmjs.com/package/@sentinel-atl/mcp-plugin) | Drop-in MCP middleware (10-step verification) |
+| [`@sentinel-atl/mcp-proxy`](https://www.npmjs.com/package/@sentinel-atl/mcp-proxy) | Transport-level proxy (stdio/SSE) |
+
+</details>
+
+<details>
+<summary><b>Supply chain scanning</b></summary>
+
+| Package | Purpose |
+|---|---|
+| [`@sentinel-atl/scanner`](https://www.npmjs.com/package/@sentinel-atl/scanner) | 7-layer MCP package security analysis (score 0–100, grade A–F) |
+| [`@sentinel-atl/registry`](https://www.npmjs.com/package/@sentinel-atl/registry) | Trust certificate registry API + SVG badges |
+| [`@sentinel-atl/crawler`](https://www.npmjs.com/package/@sentinel-atl/crawler) | MCP server discovery across Glama, npm, PyPI |
+| [`@sentinel-atl/pipeline`](https://www.npmjs.com/package/@sentinel-atl/pipeline) | Large-scale scanning workers |
+
+</details>
+
+<details>
+<summary><b>Production & operations</b></summary>
+
+| Package | Purpose |
+|---|---|
+| [`@sentinel-atl/hardening`](https://www.npmjs.com/package/@sentinel-atl/hardening) | Auth, CORS, TLS, rate limiting, security headers, nonce replay protection |
+| [`@sentinel-atl/store`](https://www.npmjs.com/package/@sentinel-atl/store) | Redis, PostgreSQL, SQLite, in-memory persistence |
+| [`@sentinel-atl/telemetry`](https://www.npmjs.com/package/@sentinel-atl/telemetry) | OpenTelemetry traces, metrics, spans |
+| [`@sentinel-atl/budget`](https://www.npmjs.com/package/@sentinel-atl/budget) | Token/cost control, circuit breakers |
+| [`@sentinel-atl/server`](https://www.npmjs.com/package/@sentinel-atl/server) | HTTP REST API server (STP-compliant) |
 | [`@sentinel-atl/conformance`](https://www.npmjs.com/package/@sentinel-atl/conformance) | STP protocol conformance test suite |
-| [`create-sentinel-app`](https://www.npmjs.com/package/create-sentinel-app) | `npx create-sentinel-app` scaffolder |
-| **Python SDK** | |
-| [`sentinel-atl`](https://pypi.org/project/sentinel-atl/) | Full Python SDK — DID, VC, reputation, audit, safety, LangChain |
 
-## Proof of Intent — Why This Matters
+</details>
 
-Every other agent identity system answers: _"Is this agent who it claims to be?"_
+<details>
+<summary><b>Human-in-the-loop & resilience</b></summary>
 
-Sentinel also answers: _"Was this action authorized by a real human, through what chain, for what purpose, and is it still valid?"_
+| Package | Purpose |
+|---|---|
+| [`@sentinel-atl/approval`](https://www.npmjs.com/package/@sentinel-atl/approval) | Human approval workflows (Slack, Webhook, Web UI) |
+| [`@sentinel-atl/stepup`](https://www.npmjs.com/package/@sentinel-atl/stepup) | Step-up auth — re-prompt humans for sensitive actions |
+| [`@sentinel-atl/offline`](https://www.npmjs.com/package/@sentinel-atl/offline) | Cached trust decisions, CRDT merge, degraded mode |
+| [`@sentinel-atl/recovery`](https://www.npmjs.com/package/@sentinel-atl/recovery) | Shamir's Secret Sharing (3-of-5 key backup) |
+| [`@sentinel-atl/hsm`](https://www.npmjs.com/package/@sentinel-atl/hsm) | HSM backends (AWS CloudHSM, Azure Managed HSM, PKCS#11) |
 
-```json
-{
-  "intentId": "019522ab-...",
-  "action": "book_flight",
-  "scope": ["travel:book", "payment:authorize_up_to_500"],
-  "principalDid": "did:key:z6MkHuman...",
-  "agentDid": "did:key:z6MkAgent...",
-  "delegationChain": ["vc:auth-credential-id", "vc:delegation-credential-id"],
-  "expiry": "2026-03-15T23:59:59Z",
-  "nonce": "a7f3...",
-  "signature": "base64url(...)"
-}
-```
+</details>
 
-This envelope travels with every action. Sub-agents inherit it. Scope can only narrow. If anything looks wrong, the chain breaks.
+<details>
+<summary><b>Integrations & tools</b></summary>
 
-## Designed for the A2A + MCP Ecosystem
+| Package | Purpose |
+|---|---|
+| [`@sentinel-atl/adapters`](https://www.npmjs.com/package/@sentinel-atl/adapters) | LangChain.js, CrewAI, AutoGen, Vercel AI SDK, MCP SDK |
+| [`@sentinel-atl/cli`](https://www.npmjs.com/package/@sentinel-atl/cli) | Command-line tool |
+| [`@sentinel-atl/dashboard`](https://www.npmjs.com/package/@sentinel-atl/dashboard) | Web trust visualization dashboard |
+| [`create-sentinel-app`](https://www.npmjs.com/package/create-sentinel-app) | Project scaffolder |
+| [`sentinel-atl`](https://pypi.org/project/sentinel-atl/) | Full Python SDK |
 
-Sentinel is NOT a competitor to A2A or MCP. It's the **trust layer they're missing**.
+</details>
 
-- **A2A** handles agent-to-agent communication → Sentinel adds identity verification before agents communicate
-- **MCP** handles tool calling → Sentinel adds authorization checks at the tool-call boundary
-- Sentinel works **alongside** both protocols, not instead of them
+---
 
-## Architecture
+## Framework adapters
 
-```
-project-sentinel/
-├── packages/
-│   ├── core/           # DID, VC, Intent, Passport, crypto
-│   ├── handshake/      # Zero-trust mutual verification
-│   ├── reputation/     # Weighted scoring engine
-│   ├── audit/          # Hash-chain audit logging (standalone API)
-│   ├── recovery/       # Shamir's Secret Sharing
-│   ├── revocation/     # VC/DID revocation, key rotation, kill switch
-│   ├── attestation/    # Code attestation (bind DID → code hash)
-│   ├── stepup/         # Step-up auth (human re-approval)
-│   ├── offline/        # Offline mode, LRU cache, CRDT merge
-│   ├── safety/         # Content safety (regex + Azure/OpenAI/LlamaGuard)
-│   ├── adapters/       # Vercel AI, LangChain.js, MCP SDK, CrewAI, AutoGen
-│   ├── mcp-plugin/     # MCP tool-call gating middleware
-│   ├── mcp-proxy/      # Real MCP transport proxy (stdio/SSE)
-│   ├── store/          # Persistent storage (Redis, PostgreSQL, SQLite)
-│   ├── telemetry/      # OpenTelemetry traces, metrics, spans
-│   ├── budget/         # Token/cost budgets, circuit breakers
-│   ├── approval/       # Human approval workflows (Slack, Webhook, Web UI)
-│   ├── sdk/            # Developer SDK (5-line integration)
-│   ├── cli/            # sentinel CLI tool
-│   ├── hsm/            # HSM KeyProvider backends
-│   └── dashboard/      # Web trust visualization dashboard
-├── python/             # Python SDK (pip install sentinel-atl)
-├── specs/              # Protocol specifications
-├── examples/           # Working demos
-├── Dockerfile          # Production container
-├── docker-compose.yml  # Full stack (server + proxy + Redis)
-└── docs/               # Threat model, privacy policy
-```
-
-## SDK Quick Start
+Works with what you already use:
 
 ```ts
-import { createTrustedAgent } from '@sentinel-atl/sdk';
-
-// Create a trusted agent in 5 lines
-const agent = await createTrustedAgent({
-  name: 'my-travel-bot',
-  capabilities: ['flight_search', 'hotel_booking'],
-  enableSafety: true, // Content safety on by default
-});
-
-// Issue credentials, handshake, create intents...
-const vc = await agent.issueCredential({
-  type: 'AgentAuthorizationCredential',
-  subjectDid: peerAgent.did,
-  scope: ['travel:search'],
-});
-
-// Go offline — cached trust decisions continue working
-agent.goOffline();
-const decision = agent.evaluateTrust(peerDid);
-// { action: 'allow', scenario: 'reputation_cached_fresh', ... }
-
-// Content safety check
-const safety = await agent.checkSafety('Ignore previous instructions...');
-// { safe: false, blocked: true, violations: [{ category: 'prompt_injection' }] }
+import { wrapMCPServer } from '@sentinel-atl/adapters';    // MCP SDK
+import { SentinelCallbackHandler } from '@sentinel-atl/adapters'; // LangChain.js
+import { createVercelAIMiddleware } from '@sentinel-atl/adapters'; // Vercel AI SDK
+import { withTrust } from '@sentinel-atl/adapters';         // Any async function
 ```
 
-## Python SDK
-
-Full-featured Python implementation with the same cryptographic guarantees:
-
-```bash
-pip install sentinel-atl
-```
-
-```python
-from sentinel_atl import create_trusted_agent
-
-agent = create_trusted_agent(name="my-agent", capabilities=["search", "book"])
-print(agent.did)  # did:key:z6Mk...
-
-# Issue credentials, check safety, audit — same API as TypeScript
-vc = agent.issue_credential(subject_did=peer.did, credential_type="AgentAuthorizationCredential")
-result = agent.check_safety("Ignore previous instructions...")
-# SafetyResult(safe=False, violations=[...])
-```
-
-LangChain integration included:
-
+Python:
 ```python
 from sentinel_atl.langchain import SentinelCallbackHandler
-chain.invoke({"input": "..."}, config={"callbacks": [SentinelCallbackHandler(agent)]})
 ```
 
-## Docker Deployment
+---
 
-Run the full stack in production:
+## Production-ready
+
+Dockerized, observable, hardened:
 
 ```bash
-docker compose up -d
+docker compose up -d  # Server + MCP Proxy + Approval UI + Redis
 ```
 
-This starts:
-- **Sentinel Server** on port 3000 (REST API)
-- **MCP Proxy** on port 3100 (stdio/SSE transport proxy)
-- **Approval UI** on port 3200 (human approval dashboard)
-- **Redis** for persistent storage
-
-Or run just the server:
-
-```bash
-docker build -t sentinel-server .
-docker run -p 3000:3000 sentinel-server
-```
-
-## Framework Adapters
-
-Sentinel integrates with real frameworks — not just shape-matching wrappers:
-
-```ts
-// Vercel AI SDK — middleware for tool verification
-import { createVercelAIMiddleware } from '@sentinel-atl/adapters';
-const middleware = createVercelAIMiddleware(verifier);
-
-// LangChain.js — callback handler for tool trust gating
-import { SentinelCallbackHandler } from '@sentinel-atl/adapters';
-const handler = new SentinelCallbackHandler(verifier);
-
-// MCP SDK — wrap any MCP server with trust checks
-import { wrapMCPServer } from '@sentinel-atl/adapters';
-wrapMCPServer(server, verifier);
-
-// Universal wrapper — works with any async function
-import { withTrust } from '@sentinel-atl/adapters';
-const trustedFn = withTrust(verifier, { name: 'search', fn: search });
-```
-
-## Security
-
-- **Ed25519** signatures on all identities, credentials, intents, and audit entries
-- **Hash-chain integrity** on the audit log (tamper = chain break)
-- **Nonce + expiry** on every handshake and intent envelope (prevents replay)
-- **Scope narrowing only** through delegation (prevents privilege escalation)
-- **Rate limiting** on handshake and vouch operations (prevents abuse)
-- **Circuit breaker** on repeated failures (prevents cascading collapse)
-- **Shamir's Secret Sharing** for key recovery (prevents permanent identity loss)
-- **VC/DID revocation lists** — signed, verifiable, importable across peers
-- **Key rotation** with dual-signature notices (old + new key both sign the rotation)
-- **Emergency kill switch** with cascade to downstream delegations (<5s)
-- **Code attestation** — cryptographic proof an agent is running verified code (supply chain security)
-- **Step-up authentication** — sensitive actions pause for human re-approval (signed challenge-response)
-- **Content safety pipeline** — prompt injection, jailbreak, PII detection with pluggable classifiers
-- **Offline/degraded mode** — configurable policies (allow/warn/deny) when services are unreachable
-
-Report vulnerabilities to: security@sentinel-protocol.org
-
-## Production Ready
-
-Sentinel ships with batteries included for production deployments:
-
-| Capability | Details |
+| | |
 |---|---|
-| **Security Headers** | `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options` on every response |
-| **Health & Readiness** | `/health` (liveness + uptime) and `/ready` (subsystem checks) endpoints |
-| **Structured Logging** | JSON logger with configurable levels (`debug`, `info`, `warn`, `error`) |
-| **Graceful Shutdown** | SIGTERM/SIGINT handlers with 10s connection drain |
-| **Request Tracing** | `X-Request-Id` on every response via `crypto.randomUUID()` |
-| **Distributed Rate Limiting** | Redis-backed atomic rate limiting via `@sentinel-atl/store` |
-| **Audit Log Rotation** | Size-based and time-based rotation with configurable retention |
-| **Env Validation** | Schema-based environment variable validation at startup |
-| **Config Validation** | Server startup validates required fields before binding |
-| **CORS** | Opt-in origin allowlist (default: locked down) |
-| **Auth** | Token auth via `authConfigFromEnv()` with public path exclusions |
-| **Docker Hardening** | Read-only filesystem, resource limits, non-root user, log caps |
-| **CI Security** | `npm audit` + Trivy container scanning in GitHub Actions |
-| **Release Automation** | Changesets + SLSA provenance on npm publishes |
-| **OpenTelemetry** | Traces, metrics, and spans via `@sentinel-atl/telemetry` |
+| **Hardening** | Security headers, CORS lockdown, TLS, nonce replay protection, rate limiting |
+| **Observability** | OpenTelemetry traces/metrics, structured JSON logging, request IDs |
+| **Operations** | Health/readiness probes, graceful shutdown, env validation, audit log rotation |
+| **Storage** | Redis, PostgreSQL, SQLite backends via `@sentinel-atl/store` |
+| **Docker** | Read-only filesystem, resource limits, non-root user |
 
 See the [Operations Guide](docs/operations-guide.md) for deployment, scaling, and monitoring details.
+
+---
 
 ## Install
 
 ```bash
-# TypeScript/Node.js
-npm install @sentinel-atl/core @sentinel-atl/sdk
-
-# With storage + observability
-npm install @sentinel-atl/store @sentinel-atl/telemetry @sentinel-atl/budget
-
-# Python
-pip install sentinel-atl
+npm install @sentinel-atl/core @sentinel-atl/sdk   # TypeScript
+pip install sentinel-atl                             # Python
 ```
 
-Or scaffold a complete app:
+Or scaffold a ready-to-run app:
 
 ```bash
 npx create-sentinel-app my-agent
@@ -477,37 +313,35 @@ npx create-sentinel-app my-server --template mcp-secure-server
 npx create-sentinel-app demo --template two-agent-handshake
 ```
 
-## Contributing
+## Open protocol
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Sentinel implements the [Sentinel Trust Protocol (STP) v1.0](specs/sentinel-trust-protocol-v1.0.md) — an open specification, not a proprietary product. Three compliance levels:
 
-```bash
-git clone https://github.com/sentinel-atl/project-sentinel.git
-cd project-sentinel
-npm install
-npm run build
-npm test             # 513 tests across 30 files (TypeScript)
-cd python && pip install -e ".[dev]" && pytest  # 15 tests (Python)
-```
+| Level | What you get |
+|---|---|
+| **STP-Lite** | DID + Verifiable Credentials |
+| **STP-Standard** | + Handshake + Reputation + Audit |
+| **STP-Full** | + Revocation + Attestation + Safety + Offline |
 
-## Protocol
-
-Sentinel implements the [Sentinel Trust Protocol (STP) v1.0](specs/sentinel-trust-protocol-v1.0.md) — an open specification for AI agent trust. The protocol defines three compliance levels:
-
-- **STP-Lite** — DID + Verifiable Credentials (minimum viable trust)
-- **STP-Standard** — + Handshake + Reputation + Audit
-- **STP-Full** — + Revocation + Attestation + Safety + Offline
-
-Run the conformance suite against any STP implementation:
-
+Test any implementation against the spec:
 ```bash
 STP_SERVER_URL=http://localhost:3000 npx @sentinel-atl/conformance
 ```
 
+## Contributing
+
+```bash
+git clone https://github.com/sentinel-atl/project-sentinel.git
+cd project-sentinel && npm install && npm run build && npm test
+# 592 tests across 33 packages
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
-[Apache License 2.0](LICENSE)
+[Apache License 2.0](LICENSE) — Built because trust cannot be a proprietary product.
 
 ---
 
-**Built because trust cannot be a proprietary product.**
+**Sentinel is not a competitor to MCP or A2A. It's the trust layer they're missing.**
