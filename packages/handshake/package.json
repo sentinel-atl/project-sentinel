@@ -18,8 +18,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "workspace:*",
-    "@sentinel-atl/audit": "workspace:*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/audit": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

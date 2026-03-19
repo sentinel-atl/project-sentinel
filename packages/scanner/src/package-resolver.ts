@@ -22,13 +22,18 @@ export interface ResolvedPackage {
   /** Package version from package.json */
   version: string;
   /** Source type */
-  source: 'npm' | 'local';
-  /** Whether we need to clean up (true for npm downloads) */
+  source: 'npm' | 'local' | 'github';
+  /** Whether we need to clean up (true for npm downloads and GitHub clones) */
   isTemporary: boolean;
 }
 
 /**
  * Resolve a package specifier to a local directory ready for scanning.
+ *
+ * Supports:
+ *   - Local paths: "./my-server", "/abs/path"
+ *   - GitHub URLs: "https://github.com/org/repo", "github:org/repo"
+ *   - npm packages: "@scope/name", "@scope/name@1.2.3"
  */
 export async function resolvePackage(specifier: string): Promise<ResolvedPackage> {
   // Check if it's a local path (starts with . or / or is absolute, or exists on disk)
@@ -45,6 +50,11 @@ export async function resolvePackage(specifier: string): Promise<ResolvedPackage
       source: 'local',
       isTemporary: false,
     };
+  }
+
+  // GitHub URL or shorthand
+  if (isGitHubSpecifier(specifier)) {
+    return resolveFromGitHub(specifier);
   }
 
   // npm package
@@ -97,13 +107,68 @@ async function resolveFromNpm(specifier: string): Promise<ResolvedPackage> {
 }
 
 /**
+ * Check if a specifier points to a GitHub repository.
+ */
+function isGitHubSpecifier(specifier: string): boolean {
+  return specifier.startsWith('github:') ||
+    specifier.startsWith('https://github.com/') ||
+    specifier.startsWith('http://github.com/') ||
+    /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9._-]+$/.test(specifier);
+}
+
+/**
+ * Clone a GitHub repo and resolve to a local directory.
+ */
+async function resolveFromGitHub(specifier: string): Promise<ResolvedPackage> {
+  let repoUrl: string;
+
+  if (specifier.startsWith('github:')) {
+    repoUrl = `https://github.com/${specifier.slice(7)}`;
+  } else if (specifier.startsWith('https://') || specifier.startsWith('http://')) {
+    repoUrl = specifier;
+  } else {
+    // "org/repo" shorthand
+    repoUrl = `https://github.com/${specifier}`;
+  }
+
+  // Normalize
+  if (repoUrl.endsWith('.git')) repoUrl = repoUrl.slice(0, -4);
+  if (repoUrl.endsWith('/')) repoUrl = repoUrl.slice(0, -1);
+
+  const tmpDir = await mkdtemp(join(tmpdir(), 'sentinel-gh-'));
+
+  try {
+    // Shallow clone (depth=1 for speed)
+    await execPromise('git', ['clone', '--depth', '1', repoUrl, tmpDir], {});
+
+    const pkg = await readPackageJson(tmpDir);
+
+    return {
+      path: tmpDir,
+      name: pkg.name ?? repoUrl.split('/').pop() ?? 'unknown',
+      version: pkg.version ?? '0.0.0',
+      source: 'github',
+      isTemporary: true,
+    };
+  } catch (err) {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    throw new Error(`Failed to clone GitHub repo "${repoUrl}": ${(err as Error).message}`);
+  }
+}
+
+/**
  * Clean up a temporary package directory.
  */
 export async function cleanupPackage(resolved: ResolvedPackage): Promise<void> {
   if (resolved.isTemporary) {
-    // Go up one directory from 'package/' to the tmp dir
-    const tmpDir = join(resolved.path, '..');
-    await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    if (resolved.source === 'github') {
+      // GitHub clones: path IS the tmp dir
+      await rm(resolved.path, { recursive: true, force: true }).catch(() => {});
+    } else {
+      // npm: go up one directory from 'package/' to the tmp dir
+      const tmpDir = join(resolved.path, '..');
+      await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    }
   }
 }
 

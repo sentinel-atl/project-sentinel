@@ -1,0 +1,45 @@
+{
+  "name": "@sentinel-atl/crawler",
+  "version": "0.1.0",
+  "description": "MCP server discovery — crawl Glama, npm, PyPI, GitHub, and official registries",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "typescript": "^5.7.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinel-atl/project-sentinel.git",
+    "directory": "packages/crawler"
+  },
+  "keywords": [
+    "mcp",
+    "crawler",
+    "discovery",
+    "trust",
+    "ai-agent",
+    "glama",
+    "npm-registry"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

@@ -18,12 +18,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "workspace:*",
-    "@sentinel-atl/sdk": "workspace:*",
-    "@sentinel-atl/audit": "workspace:*",
-    "@sentinel-atl/reputation": "workspace:*",
-    "@sentinel-atl/revocation": "workspace:*",
-    "@sentinel-atl/offline": "workspace:*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/sdk": "*",
+    "@sentinel-atl/audit": "*",
+    "@sentinel-atl/reputation": "*",
+    "@sentinel-atl/revocation": "*",
+    "@sentinel-atl/offline": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

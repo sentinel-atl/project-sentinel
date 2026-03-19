@@ -18,8 +18,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "workspace:*",
-    "@sentinel-atl/server": "workspace:*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/server": "*"
   },
   "keywords": [
     "sentinel",

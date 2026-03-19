@@ -323,6 +323,17 @@ describe('resolvePackage', () => {
       await cleanupPackage(resolved);
     }
   }, 30_000);
+
+  it('resolves a GitHub repo', async () => {
+    // Use a small, real GitHub repo
+    const resolved = await resolvePackage('https://github.com/jonschlinkert/is-odd');
+    try {
+      expect(resolved.source).toBe('github');
+      expect(resolved.isTemporary).toBe(true);
+    } finally {
+      await cleanupPackage(resolved);
+    }
+  }, 30_000);
 });
 
 // ─── Publisher Scanner Tests ──────────────────────────────────────────

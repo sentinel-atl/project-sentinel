@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@sentinel-atl/core": "workspace:*"
+    "@sentinel-atl/core": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

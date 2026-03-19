@@ -15,13 +15,13 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@sentinel-atl/core": "workspace:*",
-    "@sentinel-atl/audit": "workspace:*",
-    "@sentinel-atl/attestation": "workspace:*",
-    "@sentinel-atl/handshake": "workspace:*",
-    "@sentinel-atl/reputation": "workspace:*",
-    "@sentinel-atl/recovery": "workspace:*",
-    "@sentinel-atl/scanner": "workspace:*",
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/audit": "*",
+    "@sentinel-atl/attestation": "*",
+    "@sentinel-atl/handshake": "*",
+    "@sentinel-atl/reputation": "*",
+    "@sentinel-atl/recovery": "*",
+    "@sentinel-atl/scanner": "*",
     "commander": "^13.0.0",
     "chalk": "^5.4.0"
   },

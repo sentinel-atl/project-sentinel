@@ -1,0 +1,57 @@
+{
+  "name": "@sentinel-atl/pipeline",
+  "version": "0.1.0",
+  "description": "Scanning pipeline — queue-driven workers, PostgreSQL storage, Azure Blob/Queue integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "sentinel-worker": "dist/cli.js",
+    "sentinel-migrate": "dist/migrate.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@sentinel-atl/scanner": "*",
+    "@sentinel-atl/crawler": "*"
+  },
+  "peerDependencies": {
+    "pg": ">=8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": { "optional": false }
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "typescript": "^5.7.0",
+    "@types/node": "^20.0.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinel-atl/project-sentinel.git",
+    "directory": "packages/pipeline"
+  },
+  "keywords": [
+    "mcp",
+    "scanner",
+    "pipeline",
+    "worker",
+    "trust",
+    "ai-agent"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

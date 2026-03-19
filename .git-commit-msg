@@ -1,0 +1,17 @@
+feat: data moat infrastructure — crawler, pipeline, schema, Bicep, GitHub resolver
+
+NEW packages:
+- @sentinel-atl/crawler: 5 source crawlers + dedup engine
+- @sentinel-atl/pipeline: DB schema, queue, blob, worker, CLI
+
+Scanner updates:
+- GitHub resolver (git clone --depth 1)
+- 65 scanner tests (+1 GitHub resolver)
+
+Infrastructure:
+- Dockerfile.worker for pipeline workers
+- Azure Bicep (PostgreSQL, Storage, ACR, Container App, Key Vault)
+- deploy.sh one-command deployment
+
+Workspace: replaced workspace:* with * for npm 10 compat
+Tests: 32 files, 579 passing (+28 new)

@@ -18,9 +18,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sentinel-atl/core": "workspace:*",
-    "@sentinel-atl/reputation": "workspace:*",
-    "@sentinel-atl/revocation": "workspace:*"
+    "@sentinel-atl/core": "*",
+    "@sentinel-atl/reputation": "*",
+    "@sentinel-atl/revocation": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
