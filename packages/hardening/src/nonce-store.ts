@@ -53,14 +53,30 @@ export class NonceStore {
    * Returns an object that looks like Set<string> with .has() and .add()
    * but uses async persistent storage under the hood.
    *
-   * IMPORTANT: The returned adapter makes .has() and .add() synchronous-looking
-   * by maintaining a local cache that's flushed asynchronously. For strict
-   * distributed replay protection, use the async methods directly.
+   * The adapter maintains a local cache and auto-flushes writes to the
+   * persistent store in the background. For strict distributed replay
+   * protection, use the async methods directly.
    */
   toSyncAdapter(): Set<string> & { flush(): Promise<void> } {
     const self = this;
     const pendingAdds: Array<{ nonce: string; ttl?: number }> = [];
     const localCache = new Set<string>();
+    let flushInProgress = false;
+
+    const doFlush = async () => {
+      if (flushInProgress || pendingAdds.length === 0) return;
+      flushInProgress = true;
+      try {
+        const batch = pendingAdds.splice(0, pendingAdds.length);
+        for (const { nonce } of batch) {
+          await self.add(nonce);
+        }
+      } finally {
+        flushInProgress = false;
+        // Flush again if new items arrived during flush
+        if (pendingAdds.length > 0) doFlush();
+      }
+    };
 
     type AdapterType = Set<string> & { flush(): Promise<void> };
 
@@ -71,6 +87,8 @@ export class NonceStore {
       add(nonce: string): AdapterType {
         localCache.add(nonce);
         pendingAdds.push({ nonce });
+        // Auto-flush in the background
+        doFlush();
         return adapter;
       },
       get size() {

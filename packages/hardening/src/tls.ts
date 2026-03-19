@@ -4,10 +4,12 @@
  * Reads cert/key from files or environment variables:
  *   SENTINEL_TLS_CERT — path to PEM certificate
  *   SENTINEL_TLS_KEY  — path to PEM private key
+ *
+ * In production mode (NODE_ENV=production), warns if TLS is not configured.
  */
 
 import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https';
-import { createServer as createHttpServer, type Server as HttpServer, type RequestListener } from 'node:http';
+import { createServer as createHttpServer, type Server as HttpServer, type RequestListener, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -29,12 +31,19 @@ export interface TlsConfig {
 
 /**
  * Create an HTTP or HTTPS server based on TLS configuration.
+ * Warns on stderr if running in production without TLS.
  */
 export function createSecureServer(
   handler: RequestListener,
   tls?: TlsConfig
 ): HttpServer | HttpsServer {
   if (!tls?.enabled) {
+    if (process.env['NODE_ENV'] === 'production') {
+      process.stderr.write(
+        '[sentinel] WARNING: Running without TLS in production. ' +
+        'Set SENTINEL_TLS_CERT and SENTINEL_TLS_KEY or use a reverse proxy with HTTPS.\n'
+      );
+    }
     return createHttpServer(handler);
   }
 
@@ -46,6 +55,33 @@ export function createSecureServer(
   }
 
   return createHttpsServer({ cert, key }, handler);
+}
+
+/**
+ * Middleware that redirects HTTP to HTTPS.
+ * Use when running both an HTTP redirect server and HTTPS main server.
+ */
+export function httpsRedirectHandler(httpsPort: number): RequestListener {
+  return (req: IncomingMessage, res: ServerResponse) => {
+    const host = (req.headers.host ?? 'localhost').replace(/:\d+$/, '');
+    const portSuffix = httpsPort === 443 ? '' : `:${httpsPort}`;
+    const location = `https://${host}${portSuffix}${req.url ?? '/'}`;
+    res.writeHead(301, { Location: location });
+    res.end();
+  };
+}
+
+/**
+ * Start an HTTP→HTTPS redirect server alongside an HTTPS server.
+ * Only starts if TLS is enabled.
+ */
+export function startHttpsRedirect(httpPort: number, httpsPort: number): HttpServer | null {
+  if (!process.env['SENTINEL_TLS_CERT'] || !process.env['SENTINEL_TLS_KEY']) {
+    return null;
+  }
+  const server = createHttpServer(httpsRedirectHandler(httpsPort));
+  server.listen(httpPort);
+  return server;
 }
 
 /**

@@ -32,11 +32,14 @@ export {
 export {
   createSecureServer,
   tlsConfigFromEnv,
+  httpsRedirectHandler,
+  startHttpsRedirect,
   type TlsConfig,
 } from './tls.js';
 
 export {
   RateLimiter,
+  DistributedRateLimiter,
   setRateLimitHeaders,
   sendRateLimited,
   parseRateLimit,

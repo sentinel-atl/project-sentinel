@@ -23,6 +23,39 @@
 import { createServer, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 
+// ─── Retry Helper ────────────────────────────────────────────────────
+
+interface RetryOptions {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+}
+
+const DEFAULT_RETRY: RetryOptions = { maxRetries: 3, baseDelayMs: 1000, maxDelayMs: 30_000 };
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  opts: RetryOptions = DEFAULT_RETRY,
+): Promise<Response> {
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, init);
+      if (response.ok || response.status < 500) return response;
+      lastError = new Error(`HTTP ${response.status} ${response.statusText}`);
+    } catch (err) {
+      lastError = err as Error;
+    }
+    if (attempt < opts.maxRetries) {
+      const delay = Math.min(opts.baseDelayMs * Math.pow(2, attempt), opts.maxDelayMs);
+      const jitter = delay * (0.5 + Math.random() * 0.5);
+      await new Promise(r => setTimeout(r, jitter));
+    }
+  }
+  throw lastError ?? new Error('Fetch failed after retries');
+}
+
 // ─── Types ───────────────────────────────────────────────────────────
 
 export interface ApprovalChallenge {
@@ -72,6 +105,8 @@ export interface WebhookChannelConfig {
   timeoutMs?: number;
   /** Port to listen for callbacks (default: 0 = auto) */
   callbackPort?: number;
+  /** Retry options for webhook delivery (default: 3 retries, exponential backoff) */
+  retry?: Partial<RetryOptions>;
 }
 
 export class WebhookChannel implements ApprovalChannel {
@@ -96,19 +131,21 @@ export class WebhookChannel implements ApprovalChannel {
       await this.startCallbackServer();
     }
 
-    // POST challenge to webhook URL
+    // POST challenge to webhook URL with retry
     const callbackUrl = this.config.callbackUrl || `http://localhost:${this.config.callbackPort}/callback`;
-    const response = await fetch(this.config.url, {
+    const retryOpts = { ...DEFAULT_RETRY, ...this.config.retry };
+    const response = await fetchWithRetry(this.config.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Idempotency-Key': challenge.challengeId,
         ...this.config.headers,
       },
       body: JSON.stringify({
         ...challenge,
         callbackUrl: `${callbackUrl}?challengeId=${challenge.challengeId}`,
       }),
-    });
+    }, retryOpts);
 
     if (!response.ok) {
       throw new Error(`Webhook delivery failed: ${response.status} ${response.statusText}`);
@@ -202,6 +239,8 @@ export interface SlackChannelConfig {
   interactivityUrl?: string;
   /** Port for interactivity callback server */
   callbackPort?: number;
+  /** Retry options for Slack webhook delivery (default: 3 retries, exponential backoff) */
+  retry?: Partial<RetryOptions>;
 }
 
 export class SlackChannel implements ApprovalChannel {
@@ -217,6 +256,7 @@ export class SlackChannel implements ApprovalChannel {
       timeoutMs: config.timeoutMs ?? 300_000,
       interactivityUrl: config.interactivityUrl ?? '',
       callbackPort: config.callbackPort ?? 0,
+      retry: config.retry ?? {},
     };
   }
 
@@ -272,12 +312,13 @@ export class SlackChannel implements ApprovalChannel {
       },
     ];
 
-    // Post to Slack
-    const response = await fetch(this.config.webhookUrl, {
+    // Post to Slack with retry
+    const retryOpts = { ...DEFAULT_RETRY, ...this.config.retry };
+    const response = await fetchWithRetry(this.config.webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blocks, text: `Sentinel approval needed: ${challenge.action}` }),
-    });
+    }, retryOpts);
 
     if (!response.ok) {
       throw new Error(`Slack webhook failed: ${response.status}`);

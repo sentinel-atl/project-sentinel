@@ -47,6 +47,10 @@ export interface CacheConfig {
   revocationRefreshMs: number;
   /** Max staleness for revocation lists before rejecting (default: 1 hour) */
   revocationMaxStalenessMs: number;
+  /** Max age for CRDT vouch entries before pruning (default: 365 days) */
+  vouchMaxAgeMs: number;
+  /** Max pending transactions before oldest are dropped (default: 10_000) */
+  maxPendingTransactions: number;
 }
 
 // ─── Offline Policy ──────────────────────────────────────────────────
@@ -186,6 +190,8 @@ const DEFAULT_CACHE_CONFIG: CacheConfig = {
   reputationTtlMs: 5 * 60 * 1000,    // 5 minutes
   revocationRefreshMs: 10 * 60 * 1000, // 10 minutes
   revocationMaxStalenessMs: 60 * 60 * 1000, // 1 hour
+  vouchMaxAgeMs: 365 * 24 * 60 * 60 * 1000, // 1 year
+  maxPendingTransactions: 10_000,
 };
 
 const DEFAULT_POLICY: OfflinePolicy = {
@@ -516,6 +522,50 @@ export class OfflineManager {
   }
 
   // ─── Stats ───────────────────────────────────────────────────────
+
+  /**
+   * Prune expired CRDT vouch entries older than vouchMaxAgeMs.
+   * Returns number of entries pruned.
+   */
+  pruneVouchHistory(): number {
+    const now = Date.now();
+    let pruned = 0;
+    for (const [key, entry] of this.vouchCRDT) {
+      if ((now - entry.wallClock) > this.config.vouchMaxAgeMs) {
+        this.vouchCRDT.delete(key);
+        pruned++;
+      }
+    }
+    return pruned;
+  }
+
+  /**
+   * Evict stale entries from all caches (entries past their TTL).
+   * Returns total entries evicted.
+   */
+  pruneStaleCaches(): number {
+    let evicted = 0;
+    for (const [key] of this.vcCache.entries()) {
+      if (!this.vcCache.isValid(key)) { this.vcCache.delete(key); evicted++; }
+    }
+    for (const [key] of this.reputationCache.entries()) {
+      if (!this.reputationCache.isValid(key)) { this.reputationCache.delete(key); evicted++; }
+    }
+    for (const [key] of this.revocationCache.entries()) {
+      if (!this.revocationCache.isValid(key)) { this.revocationCache.delete(key); evicted++; }
+    }
+    return evicted;
+  }
+
+  /**
+   * Cap pending transactions to maxPendingTransactions, dropping oldest unsynced first.
+   */
+  capPendingTransactions(): number {
+    if (this.pendingTx.length <= this.config.maxPendingTransactions) return 0;
+    const excess = this.pendingTx.length - this.config.maxPendingTransactions;
+    this.pendingTx.splice(0, excess);
+    return excess;
+  }
 
   getStats(): {
     vcCacheSize: number;

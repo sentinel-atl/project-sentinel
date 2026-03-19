@@ -34,6 +34,10 @@ export interface ProxyConfig {
   enableSafety?: boolean;
   /** CORS origin (default: '*') */
   corsOrigin?: string;
+  /** Max stdout buffer per child process in bytes (default: 10MB) */
+  maxChildBuffer?: number;
+  /** Child process idle timeout in ms (default: 300_000 = 5 min) */
+  childTimeoutMs?: number;
 }
 
 export interface MCPMessage {
@@ -77,15 +81,46 @@ class SlidingWindowRateLimiter {
 
 // ─── Stdio Transport ─────────────────────────────────────────────────
 
+interface StdioTransportOptions {
+  maxBuffer?: number;      // Max stdout buffer in bytes (default: 10MB)
+  timeoutMs?: number;      // Idle timeout in ms (default: 300_000)
+}
+
 class StdioTransport {
   private process: ChildProcess;
   private pending = new Map<string | number, (msg: MCPMessage) => void>();
   private notificationHandler?: (msg: MCPMessage) => void;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private bufferSize = 0;
+  private maxBuffer: number;
+  private timeoutMs: number;
 
-  constructor(command: string, args: string[]) {
+  constructor(command: string, args: string[], options?: StdioTransportOptions) {
+    this.maxBuffer = options?.maxBuffer ?? 10 * 1024 * 1024; // 10MB
+    this.timeoutMs = options?.timeoutMs ?? 300_000;           // 5 min
+
     this.process = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'inherit'],
     });
+
+    // Enforce memory limit: track stdout buffer size, kill if exceeded
+    this.process.stdout!.on('data', (chunk: Buffer) => {
+      this.bufferSize += chunk.length;
+      if (this.bufferSize > this.maxBuffer) {
+        this.process.kill('SIGKILL');
+      }
+    });
+
+    // Clean up on process exit
+    this.process.on('exit', () => {
+      if (this.idleTimer) clearTimeout(this.idleTimer);
+      for (const [id, resolve] of this.pending) {
+        this.pending.delete(id);
+      }
+    });
+
+    // Start idle timer
+    this.resetIdleTimer();
 
     const rl = createInterface({ input: this.process.stdout! });
     let buffer = '';
@@ -118,6 +153,8 @@ class StdioTransport {
   }
 
   async send(msg: MCPMessage): Promise<MCPMessage> {
+    this.resetIdleTimer();
+    this.bufferSize = 0; // reset per-request buffer tracking
     return new Promise((resolve, reject) => {
       const id = msg.id ?? randomUUID();
       const fullMsg = { ...msg, id };
@@ -146,7 +183,21 @@ class StdioTransport {
   }
 
   async close(): Promise<void> {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
     this.process.kill('SIGTERM');
+    // Force kill after 5s if still alive
+    const forceKill = setTimeout(() => {
+      if (!this.process.killed) this.process.kill('SIGKILL');
+    }, 5000);
+    forceKill.unref();
+  }
+
+  private resetIdleTimer(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.process.kill('SIGTERM');
+    }, this.timeoutMs);
+    this.idleTimer.unref();
   }
 }
 
@@ -241,6 +292,8 @@ export class MCPSecurityProxy {
       enableAudit: config.enableAudit ?? true,
       enableSafety: config.enableSafety ?? false,
       corsOrigin: config.corsOrigin ?? '*',
+      maxChildBuffer: config.maxChildBuffer ?? 10 * 1024 * 1024,
+      childTimeoutMs: config.childTimeoutMs ?? 300_000,
     };
     this.rateLimiter = new SlidingWindowRateLimiter(this.config.rateLimit);
   }
@@ -253,7 +306,10 @@ export class MCPSecurityProxy {
     if (this.config.upstream.startsWith('stdio://')) {
       const cmd = this.config.upstream.slice('stdio://'.length);
       const parts = cmd.split(' ');
-      this.transport = new StdioTransport(parts[0], parts.slice(1));
+      this.transport = new StdioTransport(parts[0], parts.slice(1), {
+        maxBuffer: this.config.maxChildBuffer,
+        timeoutMs: this.config.childTimeoutMs,
+      });
     } else if (this.config.upstream.startsWith('http://') || this.config.upstream.startsWith('https://')) {
       this.transport = new SSETransport(this.config.upstream);
     } else {

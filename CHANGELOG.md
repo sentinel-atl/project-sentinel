@@ -5,6 +5,43 @@ All notable changes to Project Sentinel will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-19
+
+### Added
+- **HSM backends**: Real AWS CloudHSM (PKCS#11), Azure Managed HSM (@azure/keyvault-keys), and generic PKCS#11 implementations — keys never leave the HSM boundary
+- **Distributed rate limiting**: `DistributedRateLimiter` backed by external store (Redis/Postgres) for multi-instance deployments
+- **HTTPS redirect**: `httpsRedirectHandler()` and `startHttpsRedirect()` for automatic HTTP→HTTPS redirection
+- **TLS production warning**: Server warns on stderr when running without TLS in `NODE_ENV=production`
+- **Approval retry logic**: Webhook and Slack channels now retry with exponential backoff (configurable maxRetries, baseDelay, maxDelay) and idempotency keys
+- **Reputation score caching**: Computed scores cached with configurable TTL (default: 60s), auto-invalidated on new vouches
+- **Reputation vouch pruning**: `pruneExpiredVouches()` removes vouches older than maxVouchAgeMs (default: 1 year)
+- **Reputation stats**: `getStats()` exposes totalDIDs, totalVouches, cachedScores for monitoring
+- **Dashboard authentication**: Optional `authToken` config — when set, `/api/*` endpoints require Bearer token
+- **Dashboard real-time SSE**: New `/api/events` endpoint pushes data to clients via Server-Sent Events instead of polling
+- **Offline vouch pruning**: `pruneVouchHistory()` removes expired CRDT vouch entries based on `vouchMaxAgeMs`
+- **Offline cache cleanup**: `pruneStaleCaches()` evicts expired entries from VC, reputation, and revocation caches
+- **Offline transaction cap**: `capPendingTransactions()` prevents unbounded queue growth (configurable `maxPendingTransactions`)
+- **MCP Proxy resource limits**: Child processes now have `maxBuffer` (default: 10MB), idle timeout (default: 5min), and force-kill on excessive output
+- **MCP Proxy graceful shutdown**: Child processes receive SIGTERM then SIGKILL after 5s timeout
+- **Nonce store auto-flush**: Sync adapter now auto-flushes nonces to persistent store in the background
+- **Core benchmark suite**: `packages/core/src/benchmark.ts` measures identity creation, VC issuance/verification, STP tokens, reputation scoring, and safety classification
+- **13 new tests** covering score caching, vouch pruning, offline cleanup, distributed rate limiting, and HTTPS redirect
+
+### Changed
+- HSM providers are no longer stubs — they dynamically import optional peer dependencies (`pkcs11js`, `@azure/keyvault-keys`, `@azure/identity`)
+- `ReputationEngine` constructor now accepts optional `ReputationEngineConfig` (backwards compatible)
+- `OfflineManager` cache config gains `vouchMaxAgeMs` and `maxPendingTransactions` fields
+- `DashboardServer` now accepts `authToken` and `refreshIntervalMs` config options
+- `ProxyConfig` gains `maxChildBuffer` and `childTimeoutMs` options
+
+### Fixed
+- Nonce store sync adapter no longer requires manual `flush()` calls — writes propagate automatically
+- Dashboard frontend uses SSE for real-time updates instead of 5s polling (falls back to polling on error)
+
+### Security
+- Dashboard API endpoints can now be protected with bearer token authentication
+- MCP Proxy child processes are bounded by memory (maxBuffer) and time (idle timeout) to prevent resource exhaustion
+
 ## [0.3.0] - 2026-03-18
 
 ### Added

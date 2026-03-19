@@ -68,19 +68,26 @@ export interface DashboardConfig {
   title?: string;
   /** Data source — call this to get fresh data */
   getData: () => Promise<DashboardData> | DashboardData;
+  /** Optional: Bearer token for dashboard access (if set, /api/* requires Authorization header) */
+  authToken?: string;
+  /** Refresh interval in ms for SSE push (default: 5000) */
+  refreshIntervalMs?: number;
 }
 
 // ─── Dashboard Server ────────────────────────────────────────────────
 
 export class DashboardServer {
-  private config: Required<Pick<DashboardConfig, 'port' | 'host' | 'title'>> & DashboardConfig;
+  private config: Required<Pick<DashboardConfig, 'port' | 'host' | 'title' | 'refreshIntervalMs'>> & DashboardConfig;
   private server: ReturnType<typeof createServer> | null = null;
+  private sseClients = new Set<ServerResponse>();
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: DashboardConfig) {
     this.config = {
       port: 3000,
       host: 'localhost',
       title: 'Sentinel Trust Dashboard',
+      refreshIntervalMs: 5000,
       ...config,
     };
   }
@@ -96,6 +103,8 @@ export class DashboardServer {
 
       this.server.listen(this.config.port, this.config.host, () => {
         const url = `http://${this.config.host}:${this.config.port}`;
+        // Start SSE push timer
+        this.refreshTimer = setInterval(() => this.pushToSSEClients(), this.config.refreshIntervalMs);
         resolve({ url });
       });
     });
@@ -105,6 +114,14 @@ export class DashboardServer {
    * Stop the dashboard server.
    */
   async stop(): Promise<void> {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    for (const client of this.sseClients) {
+      client.end();
+    }
+    this.sseClients.clear();
     return new Promise((resolve, reject) => {
       if (!this.server) return resolve();
       this.server.close((err) => {
@@ -114,10 +131,35 @@ export class DashboardServer {
     });
   }
 
+  private async pushToSSEClients(): Promise<void> {
+    if (this.sseClients.size === 0) return;
+    try {
+      const data = await this.config.getData();
+      const payload = `data: ${JSON.stringify(data)}\n\n`;
+      for (const client of this.sseClients) {
+        client.write(payload);
+      }
+    } catch { /* ignore push errors */ }
+  }
+
+  private checkAuth(req: IncomingMessage, res: ServerResponse): boolean {
+    if (!this.config.authToken) return true;
+    const auth = req.headers.authorization;
+    if (auth === `Bearer ${this.config.authToken}`) return true;
+    // Also check query param for SSE connections
+    const url = new URL(req.url ?? '/', `http://localhost:${this.config.port}`);
+    if (url.searchParams.get('token') === this.config.authToken) return true;
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Unauthorized' }));
+    return false;
+  }
+
   private async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = req.url ?? '/';
+    const pathname = new URL(url, `http://localhost:${this.config.port}`).pathname;
 
-    if (url === '/api/data') {
+    if (pathname === '/api/data') {
+      if (!this.checkAuth(req, res)) return;
       try {
         const data = await this.config.getData();
         res.writeHead(200, {
@@ -129,6 +171,19 @@ export class DashboardServer {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Failed to load data' }));
       }
+      return;
+    }
+
+    if (pathname === '/api/events') {
+      if (!this.checkAuth(req, res)) return;
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+      res.write(':\n\n'); // initial comment to flush headers
+      this.sseClients.add(res);
+      req.on('close', () => this.sseClients.delete(res));
       return;
     }
 
@@ -350,7 +405,16 @@ function renderRevocation() {
 }
 
 loadData();
-setInterval(loadData, 5000);
+// Use SSE for real-time updates instead of polling
+const evtSource = new EventSource('/api/events');
+evtSource.onmessage = function(e) {
+  try { data = JSON.parse(e.data); render(); } catch {}
+};
+evtSource.onerror = function() {
+  // Fallback to polling if SSE fails
+  evtSource.close();
+  setInterval(loadData, 5000);
+};
 </script>
 </body>
 </html>`;

@@ -470,3 +470,86 @@ describe('applySecurityHeaders', () => {
     expect(res._headers['x-frame-options']).toBeUndefined();
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Distributed Rate Limiter
+// ═══════════════════════════════════════════════════════════════════════
+
+import { DistributedRateLimiter } from '../rate-limit.js';
+
+describe('DistributedRateLimiter', () => {
+  function createMockStore() {
+    const data = new Map<string, { value: string; ttl?: number }>();
+    return {
+      async increment(key: string, by = 1): Promise<number> {
+        const curr = parseInt(data.get(key)?.value ?? '0');
+        const next = curr + by;
+        data.set(key, { value: String(next), ttl: data.get(key)?.ttl });
+        return next;
+      },
+      async get(key: string): Promise<string | undefined> {
+        return data.get(key)?.value;
+      },
+      async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+        data.set(key, { value, ttl: ttlSeconds });
+      },
+    };
+  }
+
+  it('allows requests within limit', async () => {
+    const store = createMockStore();
+    const limiter = new DistributedRateLimiter(store, 5, 60_000);
+
+    for (let i = 0; i < 5; i++) {
+      const { allowed } = await limiter.check('client1');
+      expect(allowed).toBe(true);
+    }
+  });
+
+  it('blocks requests over limit', async () => {
+    const store = createMockStore();
+    const limiter = new DistributedRateLimiter(store, 2, 60_000);
+
+    await limiter.check('client1');
+    await limiter.check('client1');
+    const { allowed, info } = await limiter.check('client1');
+    expect(allowed).toBe(false);
+    expect(info.remaining).toBe(0);
+  });
+
+  it('tracks separate keys independently', async () => {
+    const store = createMockStore();
+    const limiter = new DistributedRateLimiter(store, 1, 60_000);
+
+    const r1 = await limiter.check('client1');
+    const r2 = await limiter.check('client2');
+    expect(r1.allowed).toBe(true);
+    expect(r2.allowed).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HTTPS Redirect
+// ═══════════════════════════════════════════════════════════════════════
+
+import { httpsRedirectHandler } from '../tls.js';
+
+describe('httpsRedirectHandler', () => {
+  it('redirects to HTTPS with 301', () => {
+    const handler = httpsRedirectHandler(443);
+    const req = mockReq({ url: '/foo', headers: { host: 'example.com' } });
+    const res = mockRes();
+    handler(req, res);
+    expect(res._status).toBe(301);
+    expect(res._headers['location']).toBe('https://example.com/foo');
+  });
+
+  it('includes port in redirect when not 443', () => {
+    const handler = httpsRedirectHandler(3443);
+    const req = mockReq({ url: '/bar', headers: { host: 'localhost:3100' } });
+    const res = mockRes();
+    handler(req, res);
+    expect(res._status).toBe(301);
+    expect(res._headers['location']).toBe('https://localhost:3443/bar');
+  });
+});

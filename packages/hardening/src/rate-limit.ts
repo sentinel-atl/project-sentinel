@@ -139,3 +139,60 @@ export function parseRateLimit(spec: string): { max: number; windowMs: number } 
 
   return { max, windowMs };
 }
+
+// ─── Distributed Rate Limiter ───────────────────────────────────────
+
+/**
+ * SentinelStore-compatible interface subset needed for distributed rate limiting.
+ */
+interface RateLimitStore {
+  increment(key: string, by?: number): Promise<number>;
+  get(key: string): Promise<string | undefined>;
+  set(key: string, value: string, ttlSeconds?: number): Promise<void>;
+}
+
+/**
+ * Distributed rate limiter backed by an external store (Redis, Postgres, etc.).
+ * Uses atomic increment for multi-instance deployments.
+ */
+export class DistributedRateLimiter {
+  private prefix: string;
+
+  constructor(
+    private store: RateLimitStore,
+    private maxRequests: number,
+    private windowMs: number,
+    prefix = 'rl:'
+  ) {
+    this.prefix = prefix;
+  }
+
+  async check(key: string): Promise<{ allowed: boolean; info: RateLimitInfo }> {
+    const windowId = Math.floor(Date.now() / this.windowMs);
+    const storeKey = `${this.prefix}${key}:${windowId}`;
+    const ttlSeconds = Math.ceil(this.windowMs / 1000);
+    const resetAt = Math.ceil(((windowId + 1) * this.windowMs) / 1000);
+
+    const count = await this.store.increment(storeKey);
+    // Set TTL on first increment
+    if (count === 1) {
+      await this.store.set(storeKey, '1', ttlSeconds);
+    }
+
+    if (count > this.maxRequests) {
+      return {
+        allowed: false,
+        info: { limit: this.maxRequests, remaining: 0, resetAt },
+      };
+    }
+
+    return {
+      allowed: true,
+      info: {
+        limit: this.maxRequests,
+        remaining: this.maxRequests - count,
+        resetAt,
+      },
+    };
+  }
+}

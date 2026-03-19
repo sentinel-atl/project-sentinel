@@ -208,4 +208,99 @@ describe('ReputationEngine', () => {
       expect(score.isQuarantined).toBe(false);
     });
   });
+
+  describe('score caching', () => {
+    it('returns cached score on subsequent calls', () => {
+      const engine = new ReputationEngine({ scoreTtlMs: 60_000 });
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV1',
+        subjectDid: 'did:key:z6MkCached',
+        polarity: 'positive',
+        weight: 0.8,
+      }));
+
+      const first = engine.computeScore('did:key:z6MkCached');
+      expect(first.source).toBe('live');
+
+      const second = engine.computeScore('did:key:z6MkCached');
+      expect(second.source).toBe('cached');
+      expect(second.score).toBe(first.score);
+    });
+
+    it('invalidates cache on new vouch', () => {
+      const engine = new ReputationEngine({ scoreTtlMs: 60_000 });
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV1',
+        subjectDid: 'did:key:z6MkInv',
+        polarity: 'positive',
+        weight: 0.8,
+      }));
+      engine.computeScore('did:key:z6MkInv');
+
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV2',
+        subjectDid: 'did:key:z6MkInv',
+        polarity: 'positive',
+        weight: 0.8,
+      }));
+
+      const after = engine.computeScore('did:key:z6MkInv');
+      expect(after.source).toBe('live');
+    });
+  });
+
+  describe('pruneExpiredVouches', () => {
+    it('removes vouches older than maxVouchAgeMs', () => {
+      const engine = new ReputationEngine({ maxVouchAgeMs: 1000 });
+      const oldDate = new Date(Date.now() - 5000).toISOString();
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV1',
+        subjectDid: 'did:key:z6MkOld',
+        timestamp: oldDate,
+      }));
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV2',
+        subjectDid: 'did:key:z6MkOld',
+        timestamp: new Date().toISOString(),
+      }));
+
+      const pruned = engine.pruneExpiredVouches();
+      expect(pruned).toBe(1);
+      expect(engine.getVouches('did:key:z6MkOld')).toHaveLength(1);
+    });
+
+    it('removes DID entry when all vouches are pruned', () => {
+      const engine = new ReputationEngine({ maxVouchAgeMs: 1000 });
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV1',
+        subjectDid: 'did:key:z6MkAllOld',
+        timestamp: new Date(Date.now() - 5000).toISOString(),
+      }));
+
+      engine.pruneExpiredVouches();
+      expect(engine.getVouches('did:key:z6MkAllOld')).toHaveLength(0);
+    });
+  });
+
+  describe('getStats', () => {
+    it('returns correct counts', () => {
+      const engine = new ReputationEngine();
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV1',
+        subjectDid: 'did:key:z6MkStat1',
+      }));
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV2',
+        subjectDid: 'did:key:z6MkStat1',
+      }));
+      engine.addVouch(makeVouch({
+        voucherDid: 'did:key:z6MkV3',
+        subjectDid: 'did:key:z6MkStat2',
+      }));
+
+      const stats = engine.getStats();
+      expect(stats.totalDIDs).toBe(2);
+      expect(stats.totalVouches).toBe(3);
+    });
+  });
 });

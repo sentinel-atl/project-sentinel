@@ -56,6 +56,8 @@ const UNVERIFIED_AGENT_CAP = 0.3; // Max influence of unverified agents
 const QUARANTINE_THRESHOLD = 3; // Negative vouches from independent verified agents
 const MAX_VOUCHES_PER_PEER_PER_DAY = 1;
 const BURST_THRESHOLD_PER_HOUR = 10;
+const DEFAULT_MAX_VOUCH_AGE_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
+const DEFAULT_SCORE_TTL_MS = 60 * 1000; // 1 minute cache
 
 /**
  * Compute time-decay factor for a vouch.
@@ -66,6 +68,13 @@ function timeDecay(vouchTimestamp: string, now: number = Date.now()): number {
   return Math.pow(0.5, age / HALF_LIFE_MS);
 }
 
+export interface ReputationEngineConfig {
+  /** Maximum age for vouches before pruning (default: 1 year) */
+  maxVouchAgeMs?: number;
+  /** TTL for cached computed scores (default: 60s) */
+  scoreTtlMs?: number;
+}
+
 export class ReputationEngine {
   /** All vouches indexed by subject DID */
   private vouches = new Map<string, Vouch[]>();
@@ -73,6 +82,16 @@ export class ReputationEngine {
   private vouchTimestamps = new Map<string, number>();
   /** Hourly vouch counts per voucher for burst detection */
   private hourlyVouchCounts = new Map<string, { count: number; windowStart: number }>();
+  /** Score cache: DID → { score, computedAt } */
+  private scoreCache = new Map<string, { score: ReputationScore; computedAt: number }>();
+  /** Config */
+  private maxVouchAgeMs: number;
+  private scoreTtlMs: number;
+
+  constructor(config?: ReputationEngineConfig) {
+    this.maxVouchAgeMs = config?.maxVouchAgeMs ?? DEFAULT_MAX_VOUCH_AGE_MS;
+    this.scoreTtlMs = config?.scoreTtlMs ?? DEFAULT_SCORE_TTL_MS;
+  }
 
   /**
    * Check if a vouch is allowed (rate limits + self-vouch rejection).
@@ -126,6 +145,9 @@ export class ReputationEngine {
     existing.push(vouch);
     this.vouches.set(vouch.subjectDid, existing);
 
+    // Invalidate cached score for this subject
+    this.scoreCache.delete(vouch.subjectDid);
+
     // Update rate limit tracking
     const pairKey = `${vouch.voucherDid}:${vouch.subjectDid}`;
     this.vouchTimestamps.set(pairKey, Date.now());
@@ -152,6 +174,12 @@ export class ReputationEngine {
    * Unverified vouchers capped at 0.3 influence.
    */
   computeScore(did: string): ReputationScore {
+    // Check score cache
+    const cached = this.scoreCache.get(did);
+    if (cached && (Date.now() - cached.computedAt) < this.scoreTtlMs) {
+      return { ...cached.score, source: 'cached' };
+    }
+
     const agentVouches = this.vouches.get(did) ?? [];
     const now = Date.now();
 
@@ -187,7 +215,7 @@ export class ReputationEngine {
     // Quarantine check
     const isQuarantined = independentVerifiedNegatives.size >= QUARANTINE_THRESHOLD;
 
-    return {
+    const result: ReputationScore = {
       did,
       score,
       totalVouches: agentVouches.length,
@@ -200,6 +228,11 @@ export class ReputationEngine {
       lastUpdated: new Date().toISOString(),
       source: 'live',
     };
+
+    // Cache the computed score
+    this.scoreCache.set(did, { score: result, computedAt: Date.now() });
+
+    return result;
   }
 
   /**
@@ -207,6 +240,45 @@ export class ReputationEngine {
    */
   getVouches(did: string): Vouch[] {
     return this.vouches.get(did) ?? [];
+  }
+
+  /**
+   * Prune expired vouches older than maxVouchAgeMs.
+   * Returns the number of vouches pruned.
+   */
+  pruneExpiredVouches(): number {
+    const now = Date.now();
+    let pruned = 0;
+    for (const [did, vouches] of this.vouches) {
+      const before = vouches.length;
+      const fresh = vouches.filter(v => (now - new Date(v.timestamp).getTime()) < this.maxVouchAgeMs);
+      if (fresh.length < before) {
+        pruned += before - fresh.length;
+        if (fresh.length === 0) {
+          this.vouches.delete(did);
+        } else {
+          this.vouches.set(did, fresh);
+        }
+        this.scoreCache.delete(did);
+      }
+    }
+    return pruned;
+  }
+
+  /**
+   * Clear stale score cache entries.
+   */
+  clearScoreCache(): void {
+    this.scoreCache.clear();
+  }
+
+  /**
+   * Get stats for monitoring.
+   */
+  getStats(): { totalDIDs: number; totalVouches: number; cachedScores: number } {
+    let totalVouches = 0;
+    for (const vouches of this.vouches.values()) totalVouches += vouches.length;
+    return { totalDIDs: this.vouches.size, totalVouches, cachedScores: this.scoreCache.size };
   }
 
   /**

@@ -374,4 +374,55 @@ describe('@sentinel-atl/offline', () => {
       expect(manager.getPolicy().fullOffline).toBe('warn');
     });
   });
+
+  // ─── Pruning & Cleanup ────────────────────────────────────────
+
+  describe('pruning', () => {
+    it('prunes old vouch history entries', () => {
+      const mgr = new OfflineManager({
+        cache: { vouchMaxAgeMs: 100 },
+      });
+      // Record a vouch with old timestamp
+      const entry = mgr.recordVouch('did:key:z6MkA', 'did:key:z6MkB', 'positive', 0.8);
+      // Manually backdate it
+      (entry as any).wallClock = Date.now() - 200;
+      // Record a fresh vouch
+      mgr.recordVouch('did:key:z6MkC', 'did:key:z6MkD', 'positive', 0.8);
+
+      const pruned = mgr.pruneVouchHistory();
+      expect(pruned).toBe(1);
+      expect(mgr.getStats().crdtEntries).toBe(1);
+    });
+
+    it('evicts stale cache entries', async () => {
+      const mgr = new OfflineManager({
+        cache: { reputationTtlMs: 50 },
+      });
+      mgr.cacheReputation({
+        did: 'did:key:z6MkTest', score: 75, totalVouches: 1,
+        positiveVouches: 1, negativeVouches: 0, isQuarantined: false,
+        lastUpdated: new Date().toISOString(), source: 'live',
+      });
+      expect(mgr.getStats().reputationCacheSize).toBe(1);
+
+      await new Promise(r => setTimeout(r, 100));
+      const evicted = mgr.pruneStaleCaches();
+      expect(evicted).toBeGreaterThanOrEqual(1);
+    });
+
+    it('caps pending transactions', () => {
+      const mgr = new OfflineManager({
+        cache: { maxPendingTransactions: 3 },
+      });
+      for (let i = 0; i < 5; i++) {
+        mgr.queueTransaction({
+          type: 'vouch', voucherDid: `a${i}`, subjectDid: 'b',
+          polarity: 'positive', weight: 1, timestamp: '',
+        });
+      }
+      const dropped = mgr.capPendingTransactions();
+      expect(dropped).toBe(2);
+      expect(mgr.getPendingTransactions()).toHaveLength(3);
+    });
+  });
 });
