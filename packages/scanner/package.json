@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@sentinel-atl/core": "workspace:*",
-    "@sentinel-atl/attestation": "workspace:*"
+    "@sentinel-atl/attestation": "workspace:*",
+    "typescript": "^5.7.0"
   },
   "devDependencies": {
     "vitest": "^3.2.4",

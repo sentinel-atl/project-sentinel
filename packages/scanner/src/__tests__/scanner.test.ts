@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { scan, scanCodePatterns, scanPermissions, computeTrustScore, issueSTC, verifySTC, resolvePackage, cleanupPackage, scanPublisher } from '../index.js';
+import { scan, scanCodePatterns, scanPermissions, computeTrustScore, computeOverallScore, computeDimensions, computeCodeHash, issueSTC, verifySTC, revokeSTC, InMemoryRevocationStore, resolvePackage, cleanupPackage, scanPublisher, detectTyposquat, scanSemantic, scanAST } from '../index.js';
 import { InMemoryKeyProvider, publicKeyToDid } from '@sentinel-atl/core';
 import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -152,7 +152,7 @@ describe('scan (full)', () => {
 
     expect(report.packageName).toBe('@test/mcp-server');
     expect(report.packageVersion).toBe('1.0.0');
-    expect(report.scannerVersion).toBe('0.3.0');
+    expect(report.scannerVersion).toBe('0.5.0');
     expect(report.trustScore.overall).toBeGreaterThanOrEqual(0);
     expect(report.trustScore.overall).toBeLessThanOrEqual(100);
     expect(report.trustScore.grade).toMatch(/^[A-F]$/);
@@ -212,7 +212,6 @@ describe('SentinelTrustCertificate', () => {
 
     const stc = await issueSTC(kp, {
       scanReport: report,
-      codeHash: 'abc123def456',
       issuerDid: identity.did,
       issuerKeyId: identity.keyId,
       issuerName: 'test-scanner',
@@ -222,7 +221,8 @@ describe('SentinelTrustCertificate', () => {
     expect(stc.type).toBe('SentinelTrustCertificate');
     expect(stc.id).toMatch(/^stc:/);
     expect(stc.subject.packageName).toBe('@test/mcp-server');
-    expect(stc.subject.codeHash).toBe('abc123def456');
+    // codeHash is now computed by the scanner, not provided by the caller
+    expect(stc.subject.codeHash).toMatch(/^[0-9a-f]{64}$/); // SHA-256 hex
     expect(stc.proof.type).toBe('Ed25519Signature2024');
 
     // Verify
@@ -240,7 +240,6 @@ describe('SentinelTrustCertificate', () => {
 
     const stc = await issueSTC(kp, {
       scanReport: report,
-      codeHash: 'abc123',
       issuerDid: identity.did,
       issuerKeyId: identity.keyId,
     });
@@ -263,7 +262,6 @@ describe('SentinelTrustCertificate', () => {
     // Issue with 0 validity (already expired)
     const stc = await issueSTC(kp, {
       scanReport: report,
-      codeHash: 'hash123',
       issuerDid: identity.did,
       issuerKeyId: identity.keyId,
       validityHours: -1, // Force expired
@@ -284,7 +282,6 @@ describe('SentinelTrustCertificate', () => {
 
     const stc = await issueSTC(kp, {
       scanReport: report,
-      codeHash: 'hash456',
       issuerDid: identity.did,
       issuerKeyId: identity.keyId,
     });
@@ -370,4 +367,448 @@ describe('scanPublisher', () => {
     expect(report.publisher!.info.packageName).toBe('express');
     expect(report.trustScore.breakdown.publisher).toBeGreaterThan(0);
   }, 15_000);
+
+  it('includes typosquat and semantic fields', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: '@test/clean-mcp', version: '1.0.0' }),
+      'src/index.ts': 'export const handler = () => "ok";\n',
+    });
+
+    const report = await scan({ packagePath: dir, skipDependencies: true });
+    expect(report.typosquat).toBeDefined();
+    expect(report.typosquat!.isSuspicious).toBe(false);
+    expect(report.semantic).toBeDefined();
+    expect(report.semantic!.analyzed).toBe(false); // no API key
+    expect(report.scanDepth).toBe('fast');
+  });
+
+  it('reports scan depth as fast when no LLM config', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: '@test/server', version: '1.0.0' }),
+      'src/index.ts': 'export const x = 1;\n',
+    });
+
+    const report = await scan({ packagePath: dir, skipDependencies: true });
+    expect(report.scanDepth).toBe('fast');
+    expect(report.trustScore.breakdown.semantic).toBe(-1);
+    expect(report.trustScore.breakdown.typosquat).toBe(100);
+  });
+});
+
+// ─── Typosquat Detector Tests ──────────────────────────────────────────
+
+describe('detectTyposquat', () => {
+  it('detects single-char edit typosquats', () => {
+    const result = detectTyposquat('mcp-server-filesytem'); // missing 's'
+    expect(result.isSuspicious).toBe(true);
+    expect(result.similarTo).toBe('mcp-server-filesystem');
+    expect(result.technique).toMatch(/char-edit/);
+    expect(result.findings.length).toBeGreaterThan(0);
+    expect(result.score).toBeLessThan(50);
+  });
+
+  it('detects homoglyph attacks', () => {
+    const result = detectTyposquat('mcp-server-s1ack'); // 1 vs l
+    expect(result.isSuspicious).toBe(true);
+    expect(result.similarTo).toBe('mcp-server-slack');
+    expect(result.technique).toBe('homoglyph');
+  });
+
+  it('does not flag known packages', () => {
+    const result = detectTyposquat('@modelcontextprotocol/server-filesystem');
+    expect(result.isSuspicious).toBe(false);
+    expect(result.score).toBe(100);
+  });
+
+  it('does not flag unrelated packages', () => {
+    const result = detectTyposquat('completely-different-package-name');
+    expect(result.isSuspicious).toBe(false);
+    expect(result.score).toBe(100);
+  });
+
+  it('detects scope confusion', () => {
+    const result = detectTyposquat('@sentinelatl/scanner'); // missing hyphen in scope
+    expect(result.isSuspicious).toBe(true);
+    expect(result.technique).toBe('scope-confusion');
+  });
+
+  it('handles empty/unknown package names', () => {
+    expect(detectTyposquat('unknown').isSuspicious).toBe(false);
+    expect(detectTyposquat('').isSuspicious).toBe(false);
+  });
+
+  it('accepts additional known packages', () => {
+    const result = detectTyposquat('my-custom-servr', ['my-custom-server']);
+    expect(result.isSuspicious).toBe(true);
+    expect(result.similarTo).toBe('my-custom-server');
+  });
+
+  it('gives very low score for distance-1 typosquats', () => {
+    const result = detectTyposquat('mcp-server-gitt'); // extra t
+    expect(result.isSuspicious).toBe(true);
+    expect(result.score).toBeLessThanOrEqual(15);
+  });
+});
+
+// ─── Semantic Scanner Tests ──────────────────────────────────────────
+
+describe('scanSemantic', () => {
+  it('skips when no API key is provided', async () => {
+    const dir = await createTempPackage({
+      'src/index.ts': 'export const x = 1;\n',
+    });
+
+    const result = await scanSemantic(dir, undefined, undefined);
+    expect(result.analyzed).toBe(false);
+    expect(result.skipReason).toContain('No LLM API key');
+    expect(result.score).toBe(-1);
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it('skips with empty config', async () => {
+    const dir = await createTempPackage({
+      'src/index.ts': 'export const x = 1;\n',
+    });
+
+    const result = await scanSemantic(dir, 'A test package', undefined);
+    expect(result.analyzed).toBe(false);
+  });
+
+  it('returns empty analyses for empty directories', async () => {
+    const dir = await createTempPackage({
+      'README.md': '# Nothing here\n', // not a source file
+    });
+
+    const result = await scanSemantic(dir, undefined, { apiKey: 'test-key', endpoint: 'http://localhost:0' });
+    // Will either return analyzed:true with empty analyses or fail gracefully
+    expect(result.findings).toBeDefined();
+    expect(result.tokensUsed).toBeDefined();
+  });
+});
+
+// ─── Trust Score Tests ────────────────────────────────────────────────
+
+describe('computeOverallScore', () => {
+  it('computes fast-mode score without semantic', () => {
+    const breakdown = {
+      dependencies: 100,
+      codePatterns: 100,
+      permissions: 100,
+      publisher: 100,
+      semantic: -1, // not run
+      typosquat: 100,
+    };
+    const score = computeOverallScore(breakdown);
+    expect(score).toBe(100);
+  });
+
+  it('computes deep-mode score with semantic', () => {
+    const breakdown = {
+      dependencies: 100,
+      codePatterns: 100,
+      permissions: 100,
+      publisher: 100,
+      semantic: 100,
+      typosquat: 100,
+    };
+    const score = computeOverallScore(breakdown);
+    expect(score).toBe(100);
+  });
+
+  it('caps score for likely typosquats', () => {
+    const breakdown = {
+      dependencies: 100,
+      codePatterns: 100,
+      permissions: 100,
+      publisher: 100,
+      semantic: -1,
+      typosquat: 15, // likely typosquat
+    };
+    const score = computeOverallScore(breakdown);
+    expect(score).toBeLessThanOrEqual(25);
+  });
+
+  it('soft-caps score for possible typosquats', () => {
+    const breakdown = {
+      dependencies: 100,
+      codePatterns: 100,
+      permissions: 100,
+      publisher: 100,
+      semantic: -1,
+      typosquat: 35, // possible typosquat
+    };
+    const score = computeOverallScore(breakdown);
+    expect(score).toBeLessThanOrEqual(45);
+  });
+
+  it('weights semantic heavily in deep mode', () => {
+    const goodSemantic = {
+      dependencies: 50, codePatterns: 50, permissions: 50,
+      publisher: 50, semantic: 100, typosquat: 100,
+    };
+    const badSemantic = {
+      dependencies: 50, codePatterns: 50, permissions: 50,
+      publisher: 50, semantic: 20, typosquat: 100,
+    };
+    const goodScore = computeOverallScore(goodSemantic);
+    const badScore = computeOverallScore(badSemantic);
+    // Semantic is 30% weight, so 80-point swing in semantic = ~24 point swing in overall
+    expect(goodScore - badScore).toBeGreaterThanOrEqual(20);
+  });
+});
+
+// ─── AST Scanner Tests ────────────────────────────────────────────────
+
+describe('scanAST', () => {
+  it('detects eval() via AST', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'const result = eval(userInput);\nconsole.log(result);',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings.some(f => f.title.includes('[AST]') && f.title.includes('eval'))).toBe(true);
+  });
+
+  it('detects new Function()', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'const fn = new Function("return 42");\nfn();',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings.some(f => f.title.includes('[AST]') && f.title.includes('Function'))).toBe(true);
+  });
+
+  it('detects aliased child_process.exec', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'import * as cp from "child_process";\ncp.exec("ls -la");\n',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings.some(f => f.title.includes('shell execution'))).toBe(true);
+    expect(result.dangerousImports.has('child_process')).toBe(true);
+  });
+
+  it('detects destructured exec from child_process', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'import { exec as shell } from "child_process";\nshell("ls");\n',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings.some(f => f.title.includes('destructured') || f.title.includes('shell'))).toBe(true);
+  });
+
+  it('detects dynamic import() with variable', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'const mod = "fs";\nconst m = await import(mod);\n',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings.some(f => f.title.includes('Dynamic import'))).toBe(true);
+  });
+
+  it('detects computed property access on globalThis', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'const name = "eval";\nconst fn = globalThis[name];\nfn("code");\n',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings.some(f => f.title.includes('globalThis'))).toBe(true);
+  });
+
+  it('detects Proxy with get trap', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'const p = new Proxy({}, { get() { return eval; } });\n',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings.some(f => f.title.includes('Proxy'))).toBe(true);
+  });
+
+  it('detects WebAssembly.instantiate', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'const mod = await WebAssembly.instantiate(buffer);\n',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings.some(f => f.title.includes('WebAssembly'))).toBe(true);
+  });
+
+  it('reports no findings for clean code', async () => {
+    const dir = await createTempPackage({
+      'server.ts': 'export function add(a: number, b: number) { return a + b; }\n',
+    });
+    const result = await scanAST(dir, ['.ts']);
+    expect(result.findings).toHaveLength(0);
+    expect(result.totalFiles).toBe(1);
+    expect(result.parseErrors).toBe(0);
+  });
+});
+
+// ─── Code Hash Tests ──────────────────────────────────────────────────
+
+describe('computeCodeHash', () => {
+  it('produces a deterministic SHA-256 hash', async () => {
+    const dir = await createTempPackage({
+      'src/index.ts': 'export const x = 1;\n',
+    });
+    const hash1 = await computeCodeHash(dir);
+    const hash2 = await computeCodeHash(dir);
+    expect(hash1).toBe(hash2);
+    expect(hash1).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('changes when file content changes', async () => {
+    const dir1 = await createTempPackage({
+      'src/index.ts': 'export const x = 1;\n',
+    });
+    const dir2 = await createTempPackage({
+      'src/index.ts': 'export const x = 2;\n',
+    });
+    const hash1 = await computeCodeHash(dir1);
+    const hash2 = await computeCodeHash(dir2);
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it('is embedded in scan report', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: '@test/pkg', version: '1.0.0' }),
+      'src/index.ts': 'export const x = 1;\n',
+    });
+    const report = await scan({ packagePath: dir, skipDependencies: true });
+    expect(report.codeHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+// ─── Multi-Dimensional Scoring Tests ──────────────────────────────────
+
+describe('computeDimensions', () => {
+  it('returns all three dimensions', () => {
+    const breakdown = {
+      dependencies: 100, codePatterns: 100, permissions: 100,
+      publisher: 100, semantic: -1, typosquat: 100,
+    };
+    const dims = computeDimensions(breakdown);
+    expect(dims.integrity).toBe(100);
+    expect(dims.behavior).toBeDefined();
+    expect(dims.provenance).toBe(100);
+  });
+
+  it('integrity drops when typosquat score is low', () => {
+    const clean = {
+      dependencies: 100, codePatterns: 100, permissions: 100,
+      publisher: 100, semantic: -1, typosquat: 100,
+    };
+    const suspicious = {
+      dependencies: 100, codePatterns: 100, permissions: 100,
+      publisher: 100, semantic: -1, typosquat: 10,
+    };
+    expect(computeDimensions(clean).integrity).toBeGreaterThan(computeDimensions(suspicious).integrity);
+  });
+
+  it('behavior drops with bad code patterns', () => {
+    const clean = {
+      dependencies: 100, codePatterns: 100, permissions: 100,
+      publisher: 100, semantic: -1, typosquat: 100,
+    };
+    const risky = {
+      dependencies: 100, codePatterns: 20, permissions: 20,
+      publisher: 100, semantic: -1, typosquat: 100,
+    };
+    expect(computeDimensions(clean).behavior).toBeGreaterThan(computeDimensions(risky).behavior);
+  });
+
+  it('scan report includes dimensions', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: '@test/pkg', version: '1.0.0' }),
+      'src/index.ts': 'export const handler = () => "ok";\n',
+    });
+    const report = await scan({ packagePath: dir, skipDependencies: true });
+    expect(report.trustScore.dimensions).toBeDefined();
+    expect(report.trustScore.dimensions.integrity).toBeGreaterThanOrEqual(0);
+    expect(report.trustScore.dimensions.behavior).toBeGreaterThanOrEqual(0);
+    expect(report.trustScore.dimensions.provenance).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─── STC Revocation Tests ─────────────────────────────────────────────
+
+describe('STC Revocation', () => {
+  let kp: InMemoryKeyProvider;
+  let identity: { keyId: string; did: string };
+
+  beforeEach(async () => {
+    kp = new InMemoryKeyProvider();
+    identity = await makeIdentity(kp);
+  });
+
+  it('revokes a certificate and verification fails', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: '@test/revoke-me', version: '1.0.0' }),
+      'src/index.ts': 'export const x = 1;\n',
+    });
+
+    const report = await scan({ packagePath: dir, skipDependencies: true });
+    const stc = await issueSTC(kp, {
+      scanReport: report,
+      issuerDid: identity.did,
+      issuerKeyId: identity.keyId,
+    });
+
+    const store = new InMemoryRevocationStore();
+
+    // Before revocation — valid
+    const before = await verifySTC(stc, store);
+    expect(before.valid).toBe(true);
+
+    // Revoke
+    await revokeSTC(kp, stc, 'Compromised publisher account', identity.keyId, store);
+
+    // After revocation — invalid
+    const after = await verifySTC(stc, store);
+    expect(after.valid).toBe(false);
+    expect(after.error).toContain('revoked');
+  });
+
+  it('revocation requires issuer key', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: '@test/revoke-bad-key', version: '1.0.0' }),
+      'src/index.ts': 'export const x = 1;\n',
+    });
+
+    const report = await scan({ packagePath: dir, skipDependencies: true });
+    const stc = await issueSTC(kp, {
+      scanReport: report,
+      issuerDid: identity.did,
+      issuerKeyId: identity.keyId,
+    });
+
+    // Try to revoke with a DIFFERENT key
+    const attackerKp = new InMemoryKeyProvider();
+    await attackerKp.generate('attacker-key');
+
+    const store = new InMemoryRevocationStore();
+    await expect(
+      revokeSTC(attackerKp, stc, 'unauthorized', 'attacker-key', store)
+    ).rejects.toThrow('does not match');
+  });
+
+  it('listRevoked returns revoked entries', async () => {
+    const store = new InMemoryRevocationStore();
+    await store.revoke('stc:abc123', 'test', '2026-01-01T00:00:00Z');
+    await store.revoke('stc:def456', 'test2', '2026-01-02T00:00:00Z');
+    const list = await store.listRevoked();
+    expect(list).toHaveLength(2);
+    expect(list.some(e => e.stcId === 'stc:abc123')).toBe(true);
+    expect(list.some(e => e.stcId === 'stc:def456')).toBe(true);
+  });
+
+  it('verifySTC still works without revocation store', async () => {
+    const dir = await createTempPackage({
+      'package.json': JSON.stringify({ name: '@test/no-store', version: '1.0.0' }),
+      'src/index.ts': 'export const x = 1;\n',
+    });
+
+    const report = await scan({ packagePath: dir, skipDependencies: true });
+    const stc = await issueSTC(kp, {
+      scanReport: report,
+      issuerDid: identity.did,
+      issuerKeyId: identity.keyId,
+    });
+
+    // No revocation store passed — backward compatible
+    const result = await verifySTC(stc);
+    expect(result.valid).toBe(true);
+  });
 });

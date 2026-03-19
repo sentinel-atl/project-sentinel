@@ -88,9 +88,54 @@ export interface STCVerifyResult {
   certificate?: SentinelTrustCertificate;
 }
 
+// ─── Revocation ──────────────────────────────────────────────────────
+
+/**
+ * Pluggable interface for certificate revocation storage.
+ * Implementations can back this with Redis, PostgreSQL, etc.
+ */
+export interface RevocationStore {
+  /** Check if a certificate ID has been revoked */
+  isRevoked(stcId: string): Promise<boolean>;
+  /** Revoke a certificate ID, with reason and timestamp */
+  revoke(stcId: string, reason: string, revokedAt: string): Promise<void>;
+  /** List all revoked certificate IDs (for CRL distribution) */
+  listRevoked(): Promise<RevocationEntry[]>;
+}
+
+export interface RevocationEntry {
+  stcId: string;
+  reason: string;
+  revokedAt: string;
+}
+
+/**
+ * In-memory revocation store (for testing and single-process use).
+ * Production deployments should use a persistent store.
+ */
+export class InMemoryRevocationStore implements RevocationStore {
+  private revoked = new Map<string, RevocationEntry>();
+
+  async isRevoked(stcId: string): Promise<boolean> {
+    return this.revoked.has(stcId);
+  }
+
+  async revoke(stcId: string, reason: string, revokedAt: string): Promise<void> {
+    this.revoked.set(stcId, { stcId, reason, revokedAt });
+  }
+
+  async listRevoked(): Promise<RevocationEntry[]> {
+    return Array.from(this.revoked.values());
+  }
+}
+
 export interface IssueSTCOptions {
   scanReport: ScanReport;
-  codeHash: string;
+  /**
+   * @deprecated The scanner now computes codeHash automatically.
+   * If provided, it is IGNORED — scanReport.codeHash is used instead.
+   */
+  codeHash?: string;
   issuerDid: string;
   issuerKeyId: string;
   issuerName?: string;
@@ -109,12 +154,14 @@ export async function issueSTC(
 ): Promise<SentinelTrustCertificate> {
   const {
     scanReport,
-    codeHash,
     issuerDid,
     issuerKeyId,
     issuerName,
     validityHours = 720,
   } = options;
+
+  // Always use the hash computed by the scanner — never trust caller-provided values.
+  const codeHash = scanReport.codeHash;
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + validityHours * 3600_000);
@@ -168,12 +215,21 @@ export async function issueSTC(
 // ─── STC Verification ────────────────────────────────────────────────
 
 /**
- * Verify a Sentinel Trust Certificate's signature and validity.
+ * Verify a Sentinel Trust Certificate's signature, validity, and revocation status.
  */
 export async function verifySTC(
-  certificate: SentinelTrustCertificate
+  certificate: SentinelTrustCertificate,
+  revocationStore?: RevocationStore,
 ): Promise<STCVerifyResult> {
   try {
+    // Check revocation first (fast fail)
+    if (revocationStore) {
+      const isRevoked = await revocationStore.isRevoked(certificate.id);
+      if (isRevoked) {
+        return { valid: false, error: 'Certificate has been revoked' };
+      }
+    }
+
     // Check expiry
     if (new Date(certificate.expiresAt) < new Date()) {
       return { valid: false, error: 'Certificate has expired' };
@@ -196,6 +252,34 @@ export async function verifySTC(
   } catch (e) {
     return { valid: false, error: `Verification failed: ${(e as Error).message}` };
   }
+}
+
+// ─── STC Revocation ──────────────────────────────────────────────────
+
+/**
+ * Revoke a previously-issued STC.
+ * The issuer must prove ownership by signing the revocation request.
+ */
+export async function revokeSTC(
+  keyProvider: KeyProvider,
+  certificate: SentinelTrustCertificate,
+  reason: string,
+  issuerKeyId: string,
+  revocationStore: RevocationStore,
+): Promise<void> {
+  // Verify the caller owns the issuer key by signing a challenge
+  const challenge = textToBytes(`revoke:${certificate.id}:${reason}`);
+  const sig = await keyProvider.sign(issuerKeyId, challenge);
+
+  // Verify the signature matches the certificate's issuer DID
+  const publicKey = didToPublicKey(certificate.issuer.did);
+  const isOwner = await verify(sig, challenge, publicKey);
+
+  if (!isOwner) {
+    throw new Error('Revocation denied: signing key does not match certificate issuer');
+  }
+
+  await revocationStore.revoke(certificate.id, reason, new Date().toISOString());
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────

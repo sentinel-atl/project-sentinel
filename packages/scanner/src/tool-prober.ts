@@ -78,11 +78,14 @@ export async function probeTools(options: ProbeOptions): Promise<ToolProbeResult
   let child: ChildProcess | null = null;
 
   try {
-    // Start the server process
+    // Start the server process in a sanitized environment.
+    // Strip sensitive keys (API keys, tokens, credentials) to prevent
+    // malicious servers from exfiltrating them.
+    const sanitizedEnv = sanitizeEnv({ ...process.env, ...options.env });
     child = spawn(options.command, options.args ?? [], {
       cwd: options.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, ...options.env },
+      env: sanitizedEnv,
       timeout: timeoutMs,
     });
 
@@ -210,4 +213,42 @@ export async function probeTools(options: ProbeOptions): Promise<ToolProbeResult
       }, 2000);
     }
   }
+}
+
+// ─── Env Sanitization ────────────────────────────────────────────────
+
+/**
+ * Patterns that match environment variable names likely to contain secrets.
+ * Anything matching these is stripped before spawning the MCP server subprocess.
+ */
+const SENSITIVE_ENV_PATTERNS = [
+  /key/i, /secret/i, /token/i, /password/i, /credential/i,
+  /auth/i, /private/i, /signing/i, /encrypt/i,
+  /^AWS_/i, /^AZURE_/i, /^GCP_/i, /^GOOGLE_/i,
+  /^OPENAI/i, /^ANTHROPIC/i, /^COHERE/i, /^HUGGING/i,
+  /^GITHUB_TOKEN$/i, /^NPM_TOKEN$/i, /^DOCKER_/i,
+  /^DATABASE_URL$/i, /^REDIS_URL$/i, /^MONGO/i,
+  /^SENTINEL_/i,
+];
+
+/** Allow-list overrides — these are safe to pass through despite matching patterns. */
+const ENV_ALLOWLIST = new Set([
+  'PATH', 'HOME', 'USER', 'SHELL', 'LANG', 'TERM',
+  'NODE_ENV', 'NODE_PATH', 'NODE_OPTIONS',
+  'TMPDIR', 'TMP', 'TEMP', 'HOSTNAME', 'PWD', 'OLDPWD',
+  'LC_ALL', 'LC_CTYPE', 'EDITOR', 'VISUAL',
+]);
+
+function sanitizeEnv(env: Record<string, string | undefined>): Record<string, string> {
+  const clean: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined) continue;
+    if (ENV_ALLOWLIST.has(key)) {
+      clean[key] = value;
+      continue;
+    }
+    if (SENSITIVE_ENV_PATTERNS.some(p => p.test(key))) continue;
+    clean[key] = value;
+  }
+  return clean;
 }

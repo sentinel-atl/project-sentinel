@@ -59,7 +59,9 @@ async function resolveFromNpm(specifier: string): Promise<ResolvedPackage> {
 
   try {
     // Use `npm pack` to download the tarball, then extract
-    await execPromise('npm', ['pack', specifier, '--pack-destination', tmpDir], { cwd: tmpDir });
+    // CRITICAL: --ignore-scripts prevents prepack/prepare lifecycle hooks from executing
+    // attacker code before we even begin scanning.
+    await execPromise('npm', ['pack', specifier, '--pack-destination', tmpDir, '--ignore-scripts'], { cwd: tmpDir });
 
     // Find the .tgz file
     const { readdir } = await import('node:fs/promises');
