@@ -1,8 +1,8 @@
 # Project Sentinel
 
-**Other MCP security tools add a proxy. Sentinel adds an identity layer.**
+**Cryptographic identity and verifiable authorization for AI agents.**
 
-Most "MCP security" products are firewalls — they sit between client and server and filter requests. That's one layer. Sentinel gives every AI agent a cryptographic identity (DID), W3C Verifiable Credentials, and a signed chain of authority back to the human who authorized the action. It's the difference between "this request looks safe" and "this request was authorized by Alice, delegated through Agent A, with scope `travel:book`, expiring in 2 hours, and here's the cryptographic proof."
+Every agent gets a DID, W3C Verifiable Credentials with scoped permissions, and a signed Proof of Intent that traces every action back to the human who authorized it — through the full delegation chain. Not just "is this request safe" but "this request was authorized by Alice, delegated through Agent A, scope `travel:book`, expiring in 2 hours, here's the Ed25519 signature."
 
 [![npm](https://img.shields.io/npm/v/@sentinel-atl/core)](https://www.npmjs.com/package/@sentinel-atl/core)
 [![Tests](https://img.shields.io/badge/Tests-592%20passing-brightgreen.svg)]()
@@ -17,17 +17,17 @@ npx create-sentinel-app my-agent && cd my-agent && npm start
 
 ---
 
-## What makes this different
+## What's inside
 
-| What others do | What Sentinel does |
+| Capability | What it does |
 |---|---|
-| Proxy between client ↔ MCP server | Give agents cryptographic identity (`did:key`) |
-| Filter tool calls by allowlist/blocklist | Verify W3C credentials with scoped permissions |
-| No concept of "who authorized this?" | **Proof of Intent** — every action traces back to a signed human authorization, through a verifiable delegation chain |
-| Runtime-only protection | **Supply chain scanning** — audit MCP packages *before* they run (`npx @sentinel-atl/scanner scan <pkg>`) |
-| Single-agent focus | **Zero-trust handshake** — two agents that have never met can mutually verify in 5 steps, no central authority |
-| No revocation story | **Emergency kill switch** — revoke a compromised agent + all its delegates in <5s, cascading |
-| Proprietary | **Open protocol** — [STP v1.0](specs/sentinel-trust-protocol-v1.0.md) is a spec, not a product. Anyone can implement it. |
+| **Cryptographic Identity** | Every agent gets a `did:key` (Ed25519). No central registry required. |
+| **W3C Verifiable Credentials** | Scoped permissions, delegation chains, expiry — all cryptographically signed |
+| **Proof of Intent** | Every action traces back to a signed human authorization through the full delegation chain |
+| **Zero-trust Handshake** | Two agents that have never met mutually verify in 5 steps, no central authority |
+| **Supply Chain Scanning** | Audit MCP packages *before* they run — `npx @sentinel-atl/scanner scan <pkg>` |
+| **Emergency Kill Switch** | Revoke a compromised agent + cascade to all delegates in <5s |
+| **Open Protocol** | [STP v1.0](specs/sentinel-trust-protocol-v1.0.md) is a spec with a conformance suite, not a product |
 
 ---
 
