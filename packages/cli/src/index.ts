@@ -19,6 +19,7 @@
  *   sentinel recover-key             Reconstruct key from shares
  *   sentinel revoke --did <did>      Emergency revocation
  *   sentinel audit verify            Verify audit log integrity
+ *   sentinel discover                Auto-discover MCP configs on this machine
  */
 
 import { Command } from 'commander';
@@ -52,7 +53,7 @@ import {
 } from '@sentinel-atl/core';
 import { AuditLog } from '@sentinel-atl/audit';
 import { splitSecret, reconstructSecret, type Share } from '@sentinel-atl/recovery';
-import { scan, issueSTC, verifySTC, resolvePackage, cleanupPackage, probeTools, type ScanReport, type SentinelTrustCertificate } from '@sentinel-atl/scanner';
+import { scan, issueSTC, verifySTC, resolvePackage, cleanupPackage, probeTools, discoverMCPConfigs, scanToolPoisoning, scanToolShadowing, analyzeFlows, type ScanReport, type SentinelTrustCertificate } from '@sentinel-atl/scanner';
 import { hashDirectory } from '@sentinel-atl/attestation';
 
 // ─── State Management ────────────────────────────────────────────────
@@ -787,5 +788,100 @@ program
   });
 
 // ─── Parse & Execute ─────────────────────────────────────────────────
+
+// ─── sentinel discover ───────────────────────────────────────────────
+
+program
+  .command('discover')
+  .description('Auto-discover MCP server configs on this machine (Claude, Cursor, Windsurf, VS Code, Gemini)')
+  .option('--json', 'Output raw JSON')
+  .option('--scan', 'Scan all discovered servers')
+  .action(async (opts: { json?: boolean; scan?: boolean }) => {
+    console.log(chalk.gray('Scanning for MCP configurations...'));
+    console.log();
+
+    const result = await discoverMCPConfigs();
+
+    if (opts.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (result.servers.length === 0) {
+      console.log(chalk.yellow('No MCP server configurations found.'));
+      if (result.configsMissing.length > 0) {
+        console.log(chalk.gray(`  Checked ${result.configsMissing.length} config locations — none found.`));
+      }
+      return;
+    }
+
+    console.log(chalk.bold(`🔍 Found ${result.servers.length} MCP server(s) across ${result.configsFound.length} config(s)`));
+    console.log();
+
+    // Group by source
+    const bySource = new Map<string, typeof result.servers>();
+    for (const s of result.servers) {
+      const list = bySource.get(s.source) ?? [];
+      list.push(s);
+      bySource.set(s.source, list);
+    }
+
+    for (const [source, servers] of bySource) {
+      const sourceLabel = source === 'claude-desktop' ? '🟤 Claude Desktop'
+        : source === 'cursor' ? '🔵 Cursor'
+        : source === 'windsurf' ? '🟢 Windsurf'
+        : source === 'vscode' ? '🟣 VS Code'
+        : source === 'gemini-cli' ? '🔴 Gemini CLI'
+        : source;
+
+      console.log(chalk.bold(`  ${sourceLabel} (${servers.length})`));
+      for (const s of servers) {
+        console.log(`    ${chalk.cyan(s.name)}: ${s.command} ${s.args.join(' ')}`);
+        if (s.env && Object.keys(s.env).length > 0) {
+          const envKeys = Object.keys(s.env);
+          console.log(chalk.gray(`      env: ${envKeys.join(', ')}`));
+        }
+      }
+      console.log();
+    }
+
+    if (result.errors.length > 0) {
+      console.log(chalk.yellow('  Warnings:'));
+      for (const err of result.errors) {
+        console.log(chalk.yellow(`    ${err.path}: ${err.error}`));
+      }
+    }
+
+    if (opts.scan) {
+      console.log(chalk.bold('\n🛡️  Probing discovered servers...\n'));
+      for (const server of result.servers) {
+        console.log(chalk.bold(`  Probing "${server.name}" (${server.command})...`));
+        const probe = await probeTools({
+          command: server.command,
+          args: server.args,
+          env: server.env,
+          timeoutMs: 15_000,
+        });
+        if (probe.success) {
+          console.log(chalk.green(`    ✓ ${probe.tools.length} tools discovered`));
+          if (probe.poisoning && probe.poisoning.poisonedTools.length > 0) {
+            console.log(chalk.red(`    ⚠ ${probe.poisoning.poisonedTools.length} tool(s) with poisoning detected`));
+          }
+          if (probe.shadowing && probe.shadowing.shadowedTools.length > 0) {
+            console.log(chalk.yellow(`    ⚠ ${probe.shadowing.shadowedTools.length} tool(s) shadowing built-ins`));
+          }
+          if (probe.flows && probe.flows.toxicFlows.length > 0) {
+            console.log(chalk.red(`    ⚠ ${probe.flows.toxicFlows.length} toxic data flow(s) detected`));
+          }
+          if (probe.findings.length === 0) {
+            console.log(chalk.green('    ✓ No issues found'));
+          }
+        } else {
+          console.log(chalk.yellow(`    ✗ Probe failed: ${probe.error}`));
+        }
+        console.log();
+      }
+    }
+  });
 
 program.parse();

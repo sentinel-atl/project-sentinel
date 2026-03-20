@@ -1,7 +1,7 @@
 {
   "name": "@sentinel-atl/scanner",
   "version": "0.3.0",
-  "description": "MCP server security scanner — npm audit meets AI agent trust verification",
+  "description": "MCP server security scanner — 11-layer analysis with tool poisoning, shadowing, toxic flow detection, and auto-discovery",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

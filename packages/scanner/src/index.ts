@@ -6,16 +6,24 @@
  * Multi-layer analysis engine that scans MCP server packages for:
  * 1. Dependency vulnerabilities (npm audit integration)
  * 2. Dangerous code patterns (eval, child_process, fs, net, exfiltration)
- * 3. Obfuscation detection (encoded payloads, minified code in src)
- * 4. Permission scope analysis (what system resources does it access?)
- * 5. Publisher identity verification (npm registry checks)
- * 6. LLM semantic analysis (intent, data flow, scope mismatch — optional)
- * 7. Typosquat detection (supply chain name similarity attacks)
+ * 3. AST-based deep structural analysis (alias tracking, obfuscation detection)
+ * 4. Obfuscation detection (encoded payloads, minified code in src)
+ * 5. Permission scope analysis (what system resources does it access?)
+ * 6. Publisher identity verification (npm registry checks)
+ * 7. Tool poisoning detection (hidden Unicode, prompt injection in tool descriptions)
+ * 8. Tool shadowing detection (tools mimicking built-in names)
+ * 9. Toxic flow analysis (cross-tool data paths: secrets→network, files→execute)
+ * 10. LLM semantic analysis (intent, data flow, scope mismatch — optional)
+ * 11. Typosquat detection (supply chain name similarity attacks)
+ *
+ * Also includes:
+ * - Auto-discovery of MCP configs (Claude Desktop, Cursor, Windsurf, VS Code, Gemini CLI)
+ * - Runtime MCP server probing with integrated poisoning/shadowing/flow analysis
  *
  * Produces a TrustScore (0-100) and a ScanReport with detailed findings.
  * Supports two scan depths:
- * - **fast** (default): sub-scanners 1-5 + 7, regex-based, ~20s, free
- * - **deep**: all 7 sub-scanners including LLM analysis, ~60s, ~$0.11/scan
+ * - **fast** (default): static sub-scanners, regex-based, ~20s, free
+ * - **deep**: all sub-scanners including LLM analysis, ~60s, ~$0.11/scan
  */
 
 export {
@@ -113,3 +121,33 @@ export {
   type PublisherInfo,
   type PublisherScanResult,
 } from './publisher-scanner.js';
+
+export {
+  discoverMCPConfigs,
+  type DiscoveredServer,
+  type DiscoveryResult,
+  type MCPClientSource,
+} from './config-discovery.js';
+
+export {
+  scanToolPoisoning,
+  type PoisoningResult,
+  type PoisonedTool,
+  type PoisoningTechnique,
+} from './poisoning-scanner.js';
+
+export {
+  scanToolShadowing,
+  type ShadowingResult,
+  type ShadowedTool,
+  type ShadowingTechnique,
+} from './shadowing-scanner.js';
+
+export {
+  analyzeFlows,
+  type FlowAnalysisResult,
+  type ToolCapability,
+  type ToxicFlow,
+  type ToxicFlowPattern,
+  type DataCategory,
+} from './flow-analyzer.js';

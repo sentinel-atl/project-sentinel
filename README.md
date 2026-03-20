@@ -8,11 +8,15 @@ Every MCP server gets a trust score (0–100), a signed trust certificate, and a
 npx @sentinel-atl/scanner scan @modelcontextprotocol/server-filesystem
 ```
 ```
-📊 Trust Score: 82/100 (Grade: B)
+�️  Trust Score: 82/100 (Grade: B)
    Dependencies:  ✅ No known vulnerabilities
    Code Patterns: ⚠️  1 high (child_process usage)
+   AST Analysis:  ✅ No obfuscation detected
    Permissions:   ✅ filesystem, network
    Publisher:     ✅ Verified on npm (2 years, 50K downloads/week)
+   Poisoning:     ✅ No injection in tool descriptions
+   Shadowing:     ✅ No tool name conflicts
+   Toxic Flows:   ✅ No dangerous data paths
 ```
 
 [![npm](https://img.shields.io/npm/v/@sentinel-atl/scanner)](https://www.npmjs.com/package/@sentinel-atl/scanner)
@@ -25,17 +29,45 @@ npx @sentinel-atl/scanner scan @modelcontextprotocol/server-filesystem
 
 ## How it works: scan → certify → enforce
 
-**1. Scan** — one command, 7 layers of analysis:
+**1. Scan** — one command, 11 layers of analysis:
 
 | Layer | What it catches |
 |---|---|
 | **Dependencies** | Known CVEs via npm audit |
 | **Code patterns** | `eval()`, `child_process`, dynamic `require()`, `fs` writes |
+| **AST analysis** | Deep structural detection — catches aliased imports, computed access, obfuscation that regex misses |
 | **Permissions** | Filesystem, network, shell access — flagged by risk level |
 | **Publisher identity** | npm account age, weekly downloads, provenance signatures |
-| **Typosquatting** | Name similarity to popular packages (Levenshtein + prefix matching) |
+| **Typosquatting** | Name similarity to popular packages (Levenshtein + homoglyphs + scope confusion) |
+| **Tool poisoning** | Hidden Unicode, prompt injection in tool descriptions, exfiltration instructions |
+| **Tool shadowing** | Tools that mimic built-in names to intercept legitimate calls |
+| **Toxic flows** | Cross-tool data paths: secrets→network, files→execute, db→webhook |
 | **Semantic analysis** | Optional LLM-based code review for subtle issues |
 | **Trust score** | Weighted composite: 0–100, grade A–F |
+
+**Auto-discover** — scan every MCP server on your machine in one shot:
+
+```bash
+npx @sentinel-atl/cli discover --scan
+```
+```
+🔍 Found 5 MCP server(s) across 3 configs
+
+  🟤 Claude Desktop (2)
+    filesystem: npx -y @modelcontextprotocol/server-filesystem /Users/me/Desktop
+    github: npx -y @modelcontextprotocol/server-github
+
+  🔵 Cursor (2)
+    postgres: npx -y @modelcontextprotocol/server-postgres
+    brave-search: npx -y @modelcontextprotocol/server-brave-search
+
+  🟣 VS Code (1)
+    everything: npx -y @modelcontextprotocol/server-everything
+
+🛡️  Probing discovered servers...
+  ✓ filesystem: 11 tools, no issues
+  ⚠ postgres: 3 tool(s) with toxic data flows (query → send_webhook)
+```
 
 **2. Certify** — sign the scan results into a portable, Ed25519-signed trust certificate:
 
@@ -164,7 +196,7 @@ const check = await agent.checkSafety('Ignore previous instructions...');
 
 | Package | Purpose |
 |---|---|
-| [`@sentinel-atl/scanner`](https://www.npmjs.com/package/@sentinel-atl/scanner) | 7-layer MCP package security scanner (score 0–100, grade A–F) |
+| [`@sentinel-atl/scanner`](https://www.npmjs.com/package/@sentinel-atl/scanner) | 11-layer MCP security scanner: code, deps, AST, permissions, poisoning, shadowing, toxic flows |
 | [`@sentinel-atl/trust-gateway`](https://www.npmjs.com/package/@sentinel-atl/trust-gateway) | YAML-configured trust enforcement gateway |
 | [`@sentinel-atl/registry`](https://www.npmjs.com/package/@sentinel-atl/registry) | Trust certificate registry API + SVG badges |
 | [`@sentinel-atl/crawler`](https://www.npmjs.com/package/@sentinel-atl/crawler) | MCP server discovery across Glama, npm, PyPI |

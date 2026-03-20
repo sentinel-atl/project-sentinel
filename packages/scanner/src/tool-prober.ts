@@ -10,6 +10,9 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { randomUUID } from 'node:crypto';
 import type { Finding } from './scanner.js';
+import { scanToolPoisoning, type PoisoningResult } from './poisoning-scanner.js';
+import { scanToolShadowing, type ShadowingResult } from './shadowing-scanner.js';
+import { analyzeFlows, type FlowAnalysisResult } from './flow-analyzer.js';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -32,6 +35,12 @@ export interface ToolProbeResult {
   tools: MCPTool[];
   /** Findings from tool analysis */
   findings: Finding[];
+  /** Tool poisoning analysis results */
+  poisoning?: PoisoningResult;
+  /** Tool shadowing analysis results */
+  shadowing?: ShadowingResult;
+  /** Cross-tool toxic flow analysis results */
+  flows?: FlowAnalysisResult;
   /** Probe duration in ms */
   durationMs: number;
 }
@@ -188,12 +197,24 @@ export async function probeTools(options: ProbeOptions): Promise<ToolProbeResult
       });
     }
 
+    // Step 4: Advanced tool analysis — poisoning, shadowing, toxic flows
+    const poisoning = scanToolPoisoning(tools);
+    const shadowing = scanToolShadowing(tools, serverName);
+    const flows = analyzeFlows(tools);
+
+    findings.push(...poisoning.findings);
+    findings.push(...shadowing.findings);
+    findings.push(...flows.findings);
+
     return {
       success: true,
       serverName,
       serverVersion,
       tools,
       findings,
+      poisoning,
+      shadowing,
+      flows,
       durationMs: Date.now() - start,
     };
   } catch (err) {
