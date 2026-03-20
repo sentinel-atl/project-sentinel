@@ -22,7 +22,7 @@
     "@sentinel-atl/reputation": "*",
     "@sentinel-atl/recovery": "*",
     "@sentinel-atl/scanner": "*",
-    "commander": "^13.0.0",
+    "commander": "^14.0.3",
     "chalk": "^5.4.0"
   },
   "devDependencies": {
