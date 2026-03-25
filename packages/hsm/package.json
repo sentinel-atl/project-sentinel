@@ -13,7 +13,7 @@
     "@sentinel-atl/core": "*"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^6.0.2"
   },
   "files": [
     "dist",
