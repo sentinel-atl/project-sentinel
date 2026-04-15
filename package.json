@@ -16,10 +16,10 @@
     "dev": "turbo run dev"
   },
   "devDependencies": {
-    "turbo": "^2.3.0",
+    "turbo": "^2.9.6",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
-    "@types/node": "^20.0.0"
+    "vitest": "^4.1.4",
+    "@types/node": "^25.6.0"
   },
   "engines": {
     "node": ">=20.0.0"
