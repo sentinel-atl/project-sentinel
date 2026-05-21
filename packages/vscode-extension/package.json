@@ -50,9 +50,9 @@
     "package": "vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.120.0",
     "typescript": "^5.7.0",
-    "@vscode/vsce": "^3.0.0"
+    "@vscode/vsce": "^3.9.1"
   },
   "dependencies": {
     "@sentinel-atl/scanner": "^0.3.0"
